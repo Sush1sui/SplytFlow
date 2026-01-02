@@ -1,0 +1,19 @@
+{
+  "name": "splytflow",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "api": "bun --filter @splytflow/api dev",
+    "mobile": "bun --filter @splytflow/mobile start",
+    "db:generate": "bun --filter @splytflow/db generate",
+    "db:push": "bun --filter @splytflow/db push"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "hono": "^4.11.3"
+  }
+}
