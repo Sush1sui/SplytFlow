@@ -21,9 +21,11 @@ export const splitConfigs = pgTable("split_configs", {
   userId: integer("user_id")
     .references(() => users.id)
     .notNull(),
-  label: text("label").notNull(),
+  label: text("label").notNull(), // e.g., "Cost of Goods", "Operating Expenses", "Marketing"
   percent: numeric("percent", { precision: 5, scale: 2 }).notNull(),
 });
+
+// Alternative name: costAllocations (more professional)
 
 // 3. Sales Table
 export const sales = pgTable("sales", {
