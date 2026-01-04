@@ -32,16 +32,19 @@ function RootNavigator() {
     return null;
   }
 
+  if (!isLoggedIn) {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)/index" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <Stack.Screen name="(auth)/index" options={{ headerShown: false }} />
-      ) : (
-        <>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-        </>
-      )}
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

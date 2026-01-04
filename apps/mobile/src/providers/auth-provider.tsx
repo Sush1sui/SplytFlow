@@ -7,6 +7,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null | undefined>();
   const [profile, setProfile] = useState<UserProfile | null | undefined>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
 
   // fetch session once, and subscribe to auth state changes
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setIsSigningOut(false); // Reset signing out flag
     });
 
     return () => {
@@ -28,15 +30,25 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
   // fetch profile when session changes
   useEffect(() => {
-    if (session === undefined) return;
+    if (session === undefined || isSigningOut) return;
 
     async function fetchProfile() {
       if (session) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("users")
           .select("*")
           .eq("id", session.user.id)
           .single();
+
+        if (error) {
+          // User doesn't exist or database error - sign out
+          console.warn("Profile fetch error, signing out:", error);
+          setIsSigningOut(true);
+          await supabase.auth.signOut();
+          setSession(null);
+          setProfile(null);
+          return;
+        }
 
         setProfile(data as UserProfile);
       } else {
@@ -44,7 +56,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       }
     }
     fetchProfile();
-  }, [session]);
+  }, [session, isSigningOut]);
 
   return (
     <AuthContext.Provider
