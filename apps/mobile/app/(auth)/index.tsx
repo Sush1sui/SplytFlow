@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { useAuthContext } from "@/src/hooks/use-auth-context";
 import GoogleSignInButton from "@/components/social-auth-buttons/google/google-sign-in-btn";
+import { Loading } from "@/components/Loading";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -15,11 +16,7 @@ export default function AuthScreen() {
   }, [isLoggedIn]);
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
+    return <Loading message="Checking sessions..." />;
   }
 
   return (
@@ -83,9 +80,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     maxWidth: 300,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#666666",
   },
 });

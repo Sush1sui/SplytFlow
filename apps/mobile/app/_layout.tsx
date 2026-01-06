@@ -6,10 +6,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 import { useAuthContext } from "@/src/hooks/use-auth-context";
 import AuthProvider from "@/src/providers/auth-provider";
+import { Loading } from "@/components/Loading";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -29,7 +29,7 @@ function RootNavigator() {
   const { isLoggedIn, isLoading } = useAuthContext();
 
   if (isLoading) {
-    return null;
+    return <Loading />;
   }
 
   if (!isLoggedIn) {
