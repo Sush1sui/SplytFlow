@@ -6,6 +6,7 @@ import { Pressable } from "react-native";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
+import AuthProtect from "@/components/protected_routes/auth_protect";
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -20,40 +21,42 @@ export default function TabLayout() {
   const colors = Colors[colorScheme];
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.tabIconSelected,
-        tabBarInactiveTintColor: colors.tabIconDefault,
-        tabBarStyle: {
-          backgroundColor: colors.tabBackground,
-          borderTopColor: colors.border,
-        },
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+    <AuthProtect>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: colors.tabIconSelected,
+          tabBarInactiveTintColor: colors.tabIconDefault,
+          tabBarStyle: {
+            backgroundColor: colors.tabBackground,
+            borderTopColor: colors.border,
+          },
+          headerShown: false,
         }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: "Analytics",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="bar-chart" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="analytics"
+          options={{
+            title: "Analytics",
+            tabBarIcon: ({ color }) => (
+              <TabBarIcon name="bar-chart" color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Settings",
+            tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
+          }}
+        />
+      </Tabs>
+    </AuthProtect>
   );
 }

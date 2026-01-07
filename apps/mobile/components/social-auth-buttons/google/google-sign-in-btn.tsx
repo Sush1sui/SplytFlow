@@ -75,6 +75,45 @@ export default function GoogleSignInButton() {
           data,
           error,
         });
+
+        if (error) {
+          console.error("onSignInButtonPress - setSession - error", error);
+          return;
+        }
+
+        // Call backend to create/verify user profile
+        try {
+          console.debug("onSignInButtonPress - calling backend create-user");
+          const apiUrl =
+            process.env.EXPO_PUBLIC_API_URL || "http://192.168.100.2:3000";
+          const response = await fetch(`${apiUrl}/auth/create-user`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ access_token: params.access_token }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            console.error("onSignInButtonPress - backend error", result);
+            // Sign out if backend fails
+            await supabase.auth.signOut();
+            return;
+          }
+
+          console.debug(
+            "onSignInButtonPress - user profile created/verified",
+            result
+          );
+        } catch (apiError) {
+          console.error("onSignInButtonPress - API call failed", apiError);
+          // Sign out on API failure
+          await supabase.auth.signOut();
+          return;
+        }
+
         return;
       } else {
         console.error("onSignInButtonPress - setSession - failed");

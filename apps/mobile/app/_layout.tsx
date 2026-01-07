@@ -24,32 +24,6 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Separate RootNavigator so we can access the AuthContext
-function RootNavigator() {
-  const { isLoggedIn, isLoading } = useAuthContext();
-
-  if (isLoading) {
-    return <Loading />;
-  }
-
-  if (!isLoggedIn) {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)/index" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    );
-  }
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-      <Stack.Screen name="+not-found" />
-    </Stack>
-  );
-}
-
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -58,17 +32,29 @@ export default function RootLayout() {
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error("Font loading error:", error);
+      throw error;
+    }
   }, [error]);
 
   useEffect(() => {
     if (loaded) {
+      console.log("Fonts loaded successfully");
       SplashScreen.hideAsync();
+    } else {
+      console.log("Waiting for fonts to load...");
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
+  if (!loaded && !error) {
+    console.log("Showing loading screen");
+    return <Loading message="Loading assets..." />;
+  }
+
+  if (error) {
+    console.error("Font error, continuing anyway");
+    SplashScreen.hideAsync();
   }
 
   const colorScheme = "light";
@@ -107,7 +93,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <AuthProvider>
-        <RootNavigator />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
       </AuthProvider>
     </ThemeProvider>
   );
