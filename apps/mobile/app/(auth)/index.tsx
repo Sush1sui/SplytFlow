@@ -6,6 +6,8 @@ import GoogleSignInButton from "@/components/social-auth-buttons/google/google-s
 import { Loading } from "@/components/Loading";
 
 export default function AuthScreen() {
+  console.log("Rendering AuthScreen");
+
   const router = useRouter();
   const { isLoggedIn, isLoading } = useAuthContext();
 

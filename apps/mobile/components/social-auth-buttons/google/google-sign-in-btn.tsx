@@ -6,6 +6,7 @@ import { expo } from "@/app.json";
 import { Text } from "@react-navigation/elements";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
+import { router } from "expo-router";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -30,7 +31,7 @@ export default function GoogleSignInButton() {
     const res = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${expo.scheme}://google-auth`,
+        redirectTo: `${expo.scheme}://`,
         queryParams: { prompt: "consent" },
         skipBrowserRedirect: true,
       },
@@ -45,7 +46,7 @@ export default function GoogleSignInButton() {
 
     const result = await WebBrowser.openAuthSessionAsync(
       googleOAuthUrl,
-      `${expo.scheme}://google-auth`,
+      `${expo.scheme}://`,
       { showInRecents: true }
     ).catch((err) => {
       console.error("onSignInButtonPress - openAuthSessionAsync - error", {
@@ -66,26 +67,12 @@ export default function GoogleSignInButton() {
       });
 
       if (params.access_token && params.refresh_token) {
-        console.debug("onSignInButtonPress - setSession");
-        const { data, error } = await supabase.auth.setSession({
-          access_token: params.access_token,
-          refresh_token: params.refresh_token,
-        });
-        console.debug("onSignInButtonPress - setSession - success", {
-          data,
-          error,
-        });
-
-        if (error) {
-          console.error("onSignInButtonPress - setSession - error", error);
-          return;
-        }
-
-        // Call backend to create/verify user profile
+        // Call backend to create/verify user profile FIRST before setting session
         try {
           console.debug("onSignInButtonPress - calling backend create-user");
           const apiUrl =
             process.env.EXPO_PUBLIC_API_URL || "http://192.168.100.2:3000";
+          console.debug("onSignInButtonPress - API URL:", apiUrl);
           const response = await fetch(`${apiUrl}/auth/create-user`, {
             method: "POST",
             headers: {
@@ -95,25 +82,44 @@ export default function GoogleSignInButton() {
           });
 
           const result = await response.json();
+          console.debug("onSignInButtonPress - backend response", {
+            status: response.status,
+            ok: response.ok,
+            result,
+          });
 
           if (!response.ok) {
             console.error("onSignInButtonPress - backend error", result);
-            // Sign out if backend fails
-            await supabase.auth.signOut();
             return;
           }
 
           console.debug(
-            "onSignInButtonPress - user profile created/verified",
-            result
+            "onSignInButtonPress - user profile created/verified successfully"
           );
         } catch (apiError) {
           console.error("onSignInButtonPress - API call failed", apiError);
-          // Sign out on API failure
-          await supabase.auth.signOut();
           return;
         }
 
+        // Now set the session AFTER user is created in database
+        console.debug("onSignInButtonPress - setSession");
+        const { data, error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+        console.debug("onSignInButtonPress - setSession - result", {
+          hasSession: !!data.session,
+          hasUser: !!data.user,
+          error,
+        });
+
+        if (error) {
+          console.error("onSignInButtonPress - setSession - error", error);
+          return;
+        }
+
+        console.debug("onSignInButtonPress - sign in complete");
+        // Don't navigate manually - let AuthProvider and routing handle it
         return;
       } else {
         console.error("onSignInButtonPress - setSession - failed");

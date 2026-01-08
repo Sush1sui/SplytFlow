@@ -3,7 +3,7 @@ import { createUserProfile } from "../services/auth.service";
 
 const authRoutes = new Hono();
 
-authRoutes.post("/auth/create-user", async (c) => {
+authRoutes.post("/create-user", async (c) => {
   try {
     const { access_token } = await c.req.json();
 

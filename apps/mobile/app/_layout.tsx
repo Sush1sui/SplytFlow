@@ -90,12 +90,16 @@ export default function RootLayout() {
     },
   };
 
+  console.log("Rendering RootLayout");
+  console.log("Location path name:", location.pathname);
+
   return (
     <ThemeProvider value={navigationTheme}>
       <AuthProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
         </Stack>
       </AuthProvider>
     </ThemeProvider>

@@ -9,6 +9,8 @@ import QuickAddSalesHome from "@/components/ui/home/quick_add_sales/quick_add_sa
 import TodaysStatsHome from "@/components/ui/home/todays_stats/todays_stats";
 
 export default function HomeScreen() {
+  console.log("Rendering HomeScreen");
+
   const colorScheme = "light";
   const colors = Colors[colorScheme];
 
