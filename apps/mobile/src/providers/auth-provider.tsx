@@ -118,12 +118,16 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         } catch (err) {
           console.error("AuthProvider: Exception during profile fetch", err);
           setProfile(null);
+        } finally {
+          // Ensure loading is set to false after handling auth state change
+          setIsLoading(false);
         }
       } else {
         console.log(
           "AuthProvider: No session after auth change, clearing profile"
         );
         setProfile(null);
+        setIsLoading(false);
       }
     });
 

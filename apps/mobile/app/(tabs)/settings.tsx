@@ -5,6 +5,7 @@ import { Typography, Spacing } from "@/constants/Theme";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import LogoutButton from "@/components/settings/LogoutButton";
 
 interface SettingsLinkProps {
   icon: string;
@@ -185,17 +186,7 @@ export default function SettingsScreen() {
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <Card style={styles.sectionCard}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => console.log("Logout")}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.logoutText, { color: colors.error }]}>
-                Log Out
-              </Text>
-            </TouchableOpacity>
-          </Card>
+          <LogoutButton />
         </View>
       </ScrollView>
     </View>
