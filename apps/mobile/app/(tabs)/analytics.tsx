@@ -3,7 +3,6 @@ import { View, Text } from "@/components/Themed";
 import { Card } from "@/components/ui";
 import { Typography, Spacing } from "@/constants/Theme";
 import Colors from "@/constants/Colors";
-import { useColorScheme } from "@/components/useColorScheme";
 import { useState } from "react";
 
 type TimePeriod = "today" | "week" | "month" | "year";

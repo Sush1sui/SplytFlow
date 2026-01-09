@@ -1,13 +1,9 @@
 import { Text } from "react-native";
 import { Button, Card, Input } from "@/components/ui";
-import { HomeStylesType } from "@/app/(tabs)/home";
+import { homeStylesGeneral as styles } from "@/components/ui/home/home-styles-general";
 import { Spacing } from "@/constants/Theme";
 
-export default function QuickAddSalesHome({
-  styles,
-}: {
-  styles: HomeStylesType;
-}) {
+export default function QuickAddSalesHome() {
   return (
     <Card style={styles.quickAddCard}>
       <Text style={styles.cardTitle}>Quick Add Sale</Text>

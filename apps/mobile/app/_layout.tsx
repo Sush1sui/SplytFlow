@@ -7,7 +7,6 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 
 import Colors from "@/constants/Colors";
-import { useAuthContext } from "@/src/hooks/use-auth-context";
 import AuthProvider from "@/src/providers/auth-provider";
 import { Loading } from "@/components/Loading";
 

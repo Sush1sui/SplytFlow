@@ -1,13 +1,9 @@
 import { Text, useColorScheme, View } from "react-native";
 import { Card } from "@/components/ui";
-import { HomeStylesType } from "@/app/(tabs)/home";
+import { homeStylesGeneral as styles } from "../home-styles-general";
 import Colors from "@/constants/Colors";
 
-export default function TodaysStatsHome({
-  styles,
-}: {
-  styles: HomeStylesType;
-}) {
+export default function TodaysStatsHome() {
   const colorScheme = "light";
   const colors = Colors[colorScheme];
 

@@ -3,9 +3,7 @@ import { Text } from "@/components/Themed";
 import { Card } from "@/components/ui";
 import { Typography, Spacing } from "@/constants/Theme";
 import Colors from "@/constants/Colors";
-import { useColorScheme } from "@/components/useColorScheme";
 import { supabase } from "@/src/lib/db";
-import { router } from "expo-router";
 import { useState } from "react";
 
 export default function LogoutButton() {

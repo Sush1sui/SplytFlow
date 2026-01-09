@@ -1,14 +1,10 @@
 import { View, Text, useColorScheme } from "react-native";
 import { Card } from "../../Card";
 import { Typography } from "@/constants/Theme";
-import { HomeStylesType } from "@/app/(tabs)/home";
+import { homeStylesGeneral as styles } from "@/components/ui/home/home-styles-general";
 import Colors from "@/constants/Colors";
 
-export default function RecentSalesHome({
-  styles,
-}: {
-  styles: HomeStylesType;
-}) {
+export default function RecentSalesHome() {
   const colorScheme = "light";
   const colors = Colors[colorScheme];
 
