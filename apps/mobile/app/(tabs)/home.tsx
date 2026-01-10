@@ -7,9 +7,13 @@ import { homeStylesGeneral as styles } from "@/components/ui/home/home-styles-ge
 import RecentSalesHome from "@/components/ui/home/recent_sales/recent_sales_home";
 import QuickAddSalesHome from "@/components/ui/home/quick_add_sales/quick_add_sales_home";
 import TodaysStatsHome from "@/components/ui/home/todays_stats/todays_stats";
+import { useAuthContext } from "@/src/hooks/use-auth-context";
 
 export default function HomeScreen() {
   console.log("Rendering HomeScreen");
+  const { profile } = useAuthContext();
+
+  console.log("User Profile:", profile);
 
   const colorScheme = "light";
   const colors = Colors[colorScheme];

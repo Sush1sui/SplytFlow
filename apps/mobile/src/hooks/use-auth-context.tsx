@@ -4,9 +4,9 @@ import { createContext, useContext } from "react";
 export type UserProfile = {
   id: string;
   email: string;
-  displayName?: string;
-  avatarUrl?: string;
-  createdAt: string;
+  display_name?: string;
+  avatar_url?: string;
+  created_at: string;
 };
 
 export type AuthData = {
@@ -14,6 +14,10 @@ export type AuthData = {
   profile?: UserProfile | null;
   isLoading: boolean;
   isLoggedIn: boolean;
+  setProfile: (
+    value: React.SetStateAction<UserProfile | null | undefined>
+  ) => void;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const AuthContext = createContext<AuthData>({
@@ -21,6 +25,8 @@ export const AuthContext = createContext<AuthData>({
   profile: undefined,
   isLoading: true,
   isLoggedIn: false,
+  setProfile: () => {},
+  setIsLoading: () => {},
 });
 
 export const useAuthContext = () => useContext(AuthContext);

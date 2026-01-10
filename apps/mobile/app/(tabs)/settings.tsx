@@ -8,10 +8,22 @@ import ProfileSectionSettings from "@/components/ui/settings/profile-section";
 import AccountSettingsView from "@/components/ui/settings/account-settings";
 import BusinessSettingsView from "@/components/ui/settings/business-settings";
 import SupportAndLegalSettingsView from "@/components/ui/settings/support-and-legal";
+import { useAuthContext } from "@/src/hooks/use-auth-context";
+import { Redirect } from "expo-router";
+import extractBefore from "@/src/utils/extractBefore";
+import { Loading } from "@/components/Loading";
 
 export default function SettingsScreen() {
+  console.log("Rendering SettingsScreen");
   const colorScheme = "light";
   const colors = Colors[colorScheme];
+
+  const { profile, isLoading } = useAuthContext();
+
+  console.log("User Profile on SettingsScreen:", profile);
+
+  if (isLoading) return <Loading message="Fetching Profile..." />;
+  if (!profile) return <Redirect href="/(auth)" />;
 
   return (
     <View style={styles.container}>
@@ -30,8 +42,8 @@ export default function SettingsScreen() {
 
         {/* Profile Section */}
         <ProfileSectionSettings
-          name="John Doe"
-          email="johndoegmail.com"
+          name={profile.display_name || `${extractBefore(profile.email, "@")}`}
+          email={profile.email}
           colors={colors}
         />
 

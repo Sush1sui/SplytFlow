@@ -1,4 +1,3 @@
-import { navigate } from "expo-router/build/global-state/routing";
 import { AuthContext, UserProfile } from "../hooks/use-auth-context";
 import { supabase } from "../lib/db";
 import type { Session } from "@supabase/supabase-js";
@@ -89,44 +88,16 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       setSession(session);
       setIsSigningOut(false);
 
-      // Fetch profile when session changes
-      if (session) {
-        console.log(
-          "AuthProvider: Fetching profile after auth change for user:",
-          session.user.id
-        );
-        try {
-          const { data: profileData, error: profileError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("supabase_id", session.user.id)
-            .single();
-
-          if (profileError || !profileData) {
-            console.warn(
-              "AuthProvider: Profile fetch error after auth change",
-              profileError
-            );
-            setProfile(null);
-          } else {
-            console.log(
-              "AuthProvider: Profile fetched successfully after auth change:",
-              profileData
-            );
-            setProfile(profileData as UserProfile);
-          }
-        } catch (err) {
-          console.error("AuthProvider: Exception during profile fetch", err);
-          setProfile(null);
-        } finally {
-          // Ensure loading is set to false after handling auth state change
-          setIsLoading(false);
-        }
-      } else {
+      // Don't fetch profile here - it should be set by the login flow
+      // or already loaded from initializeAuth on app start
+      if (!session) {
         console.log(
           "AuthProvider: No session after auth change, clearing profile"
         );
         setProfile(null);
+        setIsLoading(false);
+      } else {
+        console.log("AuthProvider: Session set, loading complete");
         setIsLoading(false);
       }
     });
@@ -143,6 +114,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         isLoading,
         profile,
         isLoggedIn: session != undefined && session != null,
+        setProfile,
+        setIsLoading,
       }}
     >
       {children}

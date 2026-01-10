@@ -7,10 +7,12 @@ import { Text } from "@react-navigation/elements";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
+import { useAuthContext } from "@/src/hooks/use-auth-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function GoogleSignInButton() {
+  const { setProfile, setIsLoading } = useAuthContext();
   function extractParamsFromUrl(url: string) {
     const parsedUrl = new URL(url);
     const hash = parsedUrl.hash.substring(1); // Remove the leading '#'
@@ -28,6 +30,8 @@ export default function GoogleSignInButton() {
 
   async function onSignInButtonPress() {
     console.debug("onSignInButtonPress - start");
+    console.debug("onSignInButtonPress - calling signInWithOAuth");
+    setIsLoading(true);
     const res = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -37,6 +41,7 @@ export default function GoogleSignInButton() {
       },
     });
 
+    console.debug("onSignInButtonPress - signInWithOAuth complete", { res });
     const googleOAuthUrl = res.data.url;
 
     if (!googleOAuthUrl) {
@@ -44,20 +49,35 @@ export default function GoogleSignInButton() {
       return;
     }
 
+    console.debug(
+      "onSignInButtonPress - opening browser with URL:",
+      googleOAuthUrl
+    );
     const result = await WebBrowser.openAuthSessionAsync(
       googleOAuthUrl,
-      `${expo.scheme}://`,
-      { showInRecents: true }
+      `${expo.scheme}://`
     ).catch((err) => {
       console.error("onSignInButtonPress - openAuthSessionAsync - error", {
         err,
       });
       console.log(err);
+      return null;
     });
 
     console.debug("onSignInButtonPress - openAuthSessionAsync - result", {
       result,
+      resultType: result?.type,
     });
+
+    if (!result) {
+      console.error("onSignInButtonPress - no result from browser");
+      return;
+    }
+
+    if (result.type === "dismiss" || result.type === "cancel") {
+      console.log("onSignInButtonPress - user cancelled or dismissed");
+      return;
+    }
 
     if (result && result.type === "success") {
       console.debug("onSignInButtonPress - openAuthSessionAsync - success");
@@ -96,6 +116,18 @@ export default function GoogleSignInButton() {
           console.debug(
             "onSignInButtonPress - user profile created/verified successfully"
           );
+
+          // Set the profile directly from API response
+          if (result.user) {
+            console.debug("onSignInButtonPress - setting profile in context");
+            setProfile({
+              id: result.user.id.toString(),
+              email: result.user.email,
+              display_name: result.user.displayName,
+              avatar_url: result.user.avatarUrl,
+              created_at: result.user.createdAt,
+            });
+          }
         } catch (apiError) {
           console.error("onSignInButtonPress - API call failed", apiError);
           return;
@@ -128,6 +160,7 @@ export default function GoogleSignInButton() {
     } else {
       console.error("onSignInButtonPress - openAuthSessionAsync - failed");
     }
+    setIsLoading(false);
   }
 
   // to warm up the browser

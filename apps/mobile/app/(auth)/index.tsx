@@ -1,10 +1,10 @@
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthContext } from "@/src/hooks/use-auth-context";
 import GoogleSignInButton from "@/components/social-auth-buttons/google/google-sign-in-btn";
 import { Loading } from "@/components/Loading";
-import { authStyles as styles } from "./styles";
+import { authStyles as styles } from "@/app/(auth)/styles";
 
 export default function AuthScreen() {
   console.log("Rendering AuthScreen");
