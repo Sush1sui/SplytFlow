@@ -12,6 +12,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@splytflow/types": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.7"
   }

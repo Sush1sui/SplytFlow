@@ -10,3 +10,6 @@ const client = postgres(connectionStr, { prepare: false });
 export const db = drizzle(client, { schema });
 export * from "./schema";
 export * from "./types";
+
+// Re-export shared types
+export type * from "@splytflow/types";

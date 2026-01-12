@@ -2,7 +2,8 @@ import { Session } from "@supabase/supabase-js";
 import { createContext, useContext } from "react";
 
 export type UserProfile = {
-  id: string;
+  id: number; // Numeric database ID
+  supabase_id: string; // UUID from Supabase auth
   email: string;
   display_name?: string;
   avatar_url?: string;

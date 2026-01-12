@@ -7,7 +7,7 @@
     "paths": {
       "@/*": ["./*"],
       "@splytflow/api": ["../api/src/index.ts"],
-      "@splytflow/db": ["../../packages/db/src/index.ts"]
+      "@splytflow/types": ["../../packages/types/index.ts"]
     }
   },
   "include": [

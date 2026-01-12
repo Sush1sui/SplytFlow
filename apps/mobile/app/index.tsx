@@ -6,7 +6,7 @@ export default function Index() {
   const { isLoggedIn, isLoading } = useAuthContext();
 
   if (isLoading) {
-    return <Loading message="Loading..." />;
+    return <Loading message="Fetching data..." />;
   }
 
   // Redirect to auth or home based on login status
