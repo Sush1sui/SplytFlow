@@ -47,6 +47,15 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="cost-allocation"
+          options={{
+            title: "Costs",
+            tabBarIcon: ({ color }) => (
+              <TabBarIcon name="pie-chart" color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="settings"
           options={{
             title: "Settings",

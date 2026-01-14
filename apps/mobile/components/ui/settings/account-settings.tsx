@@ -2,6 +2,7 @@ import { View, Text } from "react-native";
 import { Card } from "@/components/ui";
 import SettingsLink from "@/components/ui/settings/settings-link";
 import { settingsGeneralStyles as styles } from "./settings-general-styles";
+import { navigate } from "expo-router/build/global-state/routing";
 
 const settingsLinks = [
   {
@@ -14,7 +15,7 @@ const settingsLinks = [
     icon: "calculator",
     title: "Cost Allocation",
     subtitle: "Manage expense categories and splits",
-    onPress: () => console.log("Cost Allocation"),
+    onPress: () => navigate("/(tabs)/cost-allocation"),
   },
   {
     icon: "bell",
