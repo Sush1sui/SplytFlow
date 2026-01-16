@@ -10,6 +10,7 @@ import QuickAddSalesHome from "@/components/ui/home/quick_add_sales/quick_add_sa
 import TodaysStatsHome from "@/components/ui/home/todays_stats/todays_stats";
 import { useAuthContext } from "@/src/hooks/use-auth-context";
 import { setUserId } from "@/src/lib/api-client";
+import { Loading } from "@/components/Loading";
 
 export default function HomeScreen() {
   console.log("Rendering HomeScreen");
@@ -43,15 +44,7 @@ export default function HomeScreen() {
 
   // Don't render data components until user ID is set
   if (!userIdSet) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.greeting, { color: colors.text }]}>
-            Loading...
-          </Text>
-        </View>
-      </View>
-    );
+    return <Loading message="Fetching user data..." />;
   }
 
   return (
