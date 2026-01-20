@@ -1,24 +1,19 @@
 import {
   ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
-  ActivityIndicator,
   RefreshControl,
   Modal,
-  TextInput,
   Alert,
 } from "react-native";
 import { View, Text } from "@/components/Themed";
 import Colors from "@/constants/Colors";
 import { useState, useMemo, useCallback, useEffect } from "react";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useSplitConfigs, useSplitConfigsMutation } from "@/src/hooks/use-api";
 import { useAuthContext } from "@/src/hooks/use-auth-context";
 import { setUserId } from "@/src/lib/api-client";
 import { Loading } from "@/components/Loading";
 
 import { costAllocationGeneralStyles as styles } from "@/components/ui/cost-allocation/cost-allocation-general-styles";
-import CostAllocationLoading from "@/components/ui/cost-allocation/cost-allocation-loading";
 import CostAllocationError from "@/components/ui/cost-allocation/cost-allocation-error";
 import { costAllocationResponsiveStyles } from "@/components/ui/cost-allocation/responsiveStyles";
 import CostAllocationMain from "@/components/ui/cost-allocation/cost-allocation-main";
@@ -70,7 +65,7 @@ export default function CostAllocationScreen() {
   // Calculate total percentage
   const totalPercentage = splitConfigs.reduce(
     (sum, config) => sum + parseFloat(config.percentage),
-    0
+    0,
   );
 
   const handleRefresh = useCallback(async () => {
@@ -124,12 +119,12 @@ export default function CostAllocationScreen() {
     const colorExists = splitConfigs?.some(
       (config) =>
         config.color?.toLowerCase() === formData.color.toLowerCase() &&
-        config.id !== editingConfig?.id
+        config.id !== editingConfig?.id,
     );
     if (colorExists) {
       Alert.alert(
         "Duplicate Color",
-        "This color is already used by another category. Please choose a different color for better visual distinction."
+        "This color is already used by another category. Please choose a different color for better visual distinction.",
       );
       return;
     }
@@ -180,26 +175,30 @@ export default function CostAllocationScreen() {
               } catch (err: any) {
                 Alert.alert(
                   "Error",
-                  err.message || "Failed to delete split category"
+                  err.message || "Failed to delete split category",
                 );
               }
             },
           },
-        ]
+        ],
       );
     },
-    [deleteConfig, refetch]
+    [deleteConfig, refetch],
   );
 
   // Responsive styles
   const responsiveStyles = useMemo(
     () => costAllocationResponsiveStyles({ isSmallScreen, isLargeScreen }),
-    [isSmallScreen, isLargeScreen]
+    [isSmallScreen, isLargeScreen],
   );
 
   // Don't render until user ID is set
   if (!userIdSet) {
     return <Loading message="Fetching allocations..." />;
+  }
+
+  if (loading && !refreshing) {
+    return <Loading message="Loading split configurations..." />;
   }
 
   return (
@@ -235,9 +234,7 @@ export default function CostAllocationScreen() {
           </Text>
         </View>
 
-        {loading && !refreshing ? (
-          <CostAllocationLoading />
-        ) : error ? (
+        {error ? (
           <CostAllocationError error={error} refetch={refetch} />
         ) : (
           <CostAllocationMain

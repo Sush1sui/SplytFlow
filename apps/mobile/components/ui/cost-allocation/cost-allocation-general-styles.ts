@@ -42,10 +42,6 @@ const costAllocationGeneralStyles = StyleSheet.create({
   summaryLabel: {
     fontSize: Typography.size.sm,
   },
-  loadingCard: {
-    alignItems: "center",
-    paddingVertical: Spacing["2xl"],
-  },
   loadingText: {
     marginTop: Spacing.md,
     fontSize: Typography.size.base,
