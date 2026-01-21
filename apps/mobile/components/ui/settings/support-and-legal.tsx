@@ -2,29 +2,30 @@ import { View, Text } from "react-native";
 import { Card } from "@/components/ui";
 import SettingsLink from "@/components/ui/settings/settings-link";
 import { settingsGeneralStyles as styles } from "./settings-general-styles";
+import { router } from "expo-router";
 
 const supportAndLegalLinks = [
   {
     icon: "question-circle",
     title: "Help & FAQs",
     subtitle: "Get answers to common questions",
-    onPress: () => console.log("FAQs"),
+    onPress: () => router.push("/(tabs)/settings/help-faqs"),
   },
   {
     icon: "info-circle",
     title: "About Splytflow",
     subtitle: "Version 1.0.0",
-    onPress: () => console.log("About"),
+    onPress: () => router.push("/(tabs)/settings/about"),
   },
   {
     icon: "file-text-o",
     title: "Terms of Service",
-    onPress: () => console.log("TOS"),
+    onPress: () => router.push("/(tabs)/settings/terms"),
   },
   {
     icon: "shield",
     title: "Privacy Policy",
-    onPress: () => console.log("Privacy"),
+    onPress: () => router.push("/(tabs)/settings/privacy"),
   },
 ];
 

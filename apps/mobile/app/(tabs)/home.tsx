@@ -25,7 +25,7 @@ export default function HomeScreen() {
   // Set user ID for API calls
   useEffect(() => {
     if (profile?.id) {
-      console.log("Setting user ID for API calls:", profile.id);
+      // console.log("Setting user ID for API calls:", profile.id);
       setUserId(profile.id); // Use numeric database ID
       setUserIdSet(true);
     }
