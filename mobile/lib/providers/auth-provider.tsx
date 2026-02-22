@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
-import { AuthContext, UserProfile } from "../context/auth-context";
+import { AuthContext } from "../context/auth-context";
 import { apiFetcher } from "../utils/api-fetcher";
 import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
 import { router } from "expo-router";
+import type {
+  UserProfile,
+  RefreshResponse,
+  MeResponse,
+  LoginResponse,
+} from "../types/auth";
 
-// SecureStore keys. Must be non-empty and may contain only alphanumeric
-// characters, '.', '-' and '_'.
+// SecureStore keys. Must be non-empty and may contain only alphanumeric characters, '.', '-' and '_'.
 const TOKEN_KEY =
   (process.env.TOKEN_KEY && process.env.TOKEN_KEY.trim()) ||
   "splytflow_session_token";
@@ -14,26 +19,6 @@ const TOKEN_KEY =
 const REFRESH_TOKEN_KEY =
   (process.env.REFRESH_TOKEN_KEY && process.env.REFRESH_TOKEN_KEY.trim()) ||
   "splytflow_refresh_token";
-
-interface LoginResponse {
-  message: string;
-  user: UserProfile;
-  token: string;
-  expiresAt: string;
-  refreshToken: string;
-  refreshTokenExpiresAt: string;
-}
-
-interface MeResponse {
-  user: UserProfile;
-}
-
-interface RefreshResponse {
-  token: string;
-  expiresAt: string;
-  refreshToken: string;
-  refreshTokenExpiresAt: string;
-}
 
 export default function AuthProvider({
   children,

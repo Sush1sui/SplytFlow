@@ -1,29 +1,7 @@
 import { createContext, useContext } from "react";
+import type { AuthContext as AuthContextType } from "../types/auth";
 
-export type UserProfile = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  profilePictureUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type AuthContext = {
-  user: UserProfile | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string,
-    confirmPassword: string,
-  ) => Promise<void>;
-  logout: () => void;
-};
-
-export const AuthContext = createContext<AuthContext>({
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async () => {},
   signup: async () => {},
