@@ -19,6 +19,7 @@ export type AuthContext = {
     confirmPassword: string,
   ) => Promise<void>;
   logout: () => void;
+  loading: boolean;
 };
 
 export interface LoginResponse {

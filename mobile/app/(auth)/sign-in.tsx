@@ -73,24 +73,25 @@ export default function SignIn() {
   });
 
   const handleSignIn = async () => {
-    router.replace("/otp"); // simulation purposes
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both email and password", [
+        { text: "OK", style: "default" },
+      ]);
+      return;
+    }
 
-    // if (!email || !password) {
-    //   Alert.alert("Error", "Please enter both email and password");
-    //   return;
-    // }
-
-    // try {
-    //   setLoading(true);
-    //   await login(email, password);
-    // } catch (error: unknown) {
-    //   Alert.alert(
-    //     "Login Failed",
-    //     error instanceof Error ? error.message : "An error occurred",
-    //   );
-    // } finally {
-    //   setLoading(false);
-    // }
+    try {
+      setLoading(true);
+      await login(email, password);
+    } catch (error: unknown) {
+      Alert.alert(
+        "Login Failed",
+        error instanceof Error ? error.message : "An error occurred",
+        [{ text: "OK", style: "default" }],
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -1,9 +1,9 @@
 import { useAuthContext } from "@/lib/context/auth-context";
-import { Redirect } from "expo-router";
 import React from "react";
 import { Loading } from "../ui/loading";
+import { Redirect } from "expo-router";
 
-export default function AuthProtect({
+export default function NoAuthProtect({
   children,
 }: {
   children: React.ReactNode;
@@ -12,7 +12,7 @@ export default function AuthProtect({
 
   if (loading) return <Loading message="Fetching user data..." />;
 
-  if (!user) return <Redirect href="/(auth)/sign-in" />;
+  if (user) return null; // redirects to home screen
 
   return <>{children}</>;
 }
