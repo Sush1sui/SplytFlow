@@ -12,7 +12,7 @@ export default function NoAuthProtect({
 
   if (loading) return <Loading message="Fetching user data..." />;
 
-  if (user) return null; // redirects to home screen
+  if (user) return <Redirect href="/(tabs)/home" />;
 
   return <>{children}</>;
 }

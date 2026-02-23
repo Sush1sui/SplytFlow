@@ -6,6 +6,7 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   signup: async () => {},
   logout: () => {},
+  loading: true,
 });
 
 export const useAuthContext = () => useContext(AuthContext);

@@ -12,7 +12,7 @@ export default function Index() {
   if (user) {
     // User is authenticated, redirect to main app
     // TODO: Create a main app screen (e.g., home screen)
-    return <Redirect href="/(auth)/sign-in" />; // Change this to your main app route
+    return <Redirect href="/(tabs)/home" />;
   }
 
   // User is not authenticated, redirect to sign in
