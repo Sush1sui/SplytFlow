@@ -8,7 +8,7 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuthStyles } from "./auth-stylesheet";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { useAuthContext } from "@/lib/context/auth-context";
+import { validateSignup } from "@/lib/utils/auth-validate";
 
 export default function SignUp() {
   const [firstName, setFirstName] = useState("");
@@ -32,9 +33,11 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
 
   const styles = useAuthStyles();
-  const { signup } = useAuthContext();
+  const { OTP_signup } = useAuthContext();
   const background = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
+
+  const router = useRouter();
 
   // Entrance animations
   const headerAnim = useRef(new Animated.Value(0)).current;
@@ -77,19 +80,37 @@ export default function SignUp() {
   });
 
   const handleSignUp = async () => {
-    if (!firstName || !lastName || !email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
+    const errors = validateSignup(
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+    );
 
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+    if (errors.length > 0) {
+      Alert.alert("Signup Failed", errors.join("\n"));
       return;
     }
 
     try {
       setLoading(true);
-      await signup(firstName, lastName, email, password, confirmPassword);
+      const success = await OTP_signup(email);
+      if (!success) {
+        Alert.alert("Error", "Please try again.");
+        return;
+      }
+
+      router.push({
+        pathname: "/(public)/otp",
+        params: {
+          firstName,
+          lastName,
+          email,
+          password,
+          confirmPassword,
+        },
+      });
     } catch (error) {
       Alert.alert(
         "Signup Failed",

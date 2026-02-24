@@ -10,6 +10,8 @@ import type {
   MeResponse,
   LoginResponse,
 } from "../types/auth";
+import { requestOTP, verify } from "../utils/otp";
+import { validateSignup } from "../utils/auth-validate";
 
 // SecureStore keys. Must be non-empty and may contain only alphanumeric characters, '.', '-' and '_'.
 const TOKEN_KEY =
@@ -148,6 +150,18 @@ export default function AuthProvider({
     password: string,
     confirmPassword: string,
   ) => {
+    const errors = validateSignup(
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+    );
+
+    if (errors.length > 0) {
+      throw new Error(errors.join("\n"));
+    }
+
     try {
       const data = await apiFetcher<LoginResponse>(
         `${API_BASE_URL}${API_ENDPOINTS.AUTH.SIGNUP}`,
@@ -169,10 +183,60 @@ export default function AuthProvider({
         SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
       ]);
 
-      setUser(data.user);
-      router.replace("/");
+      // setUser(data.user);
+      // router.replace("/");
+      return data.user;
     } catch (error) {
       console.error("Signup failed:", error);
+      throw error;
+    }
+  };
+
+  const OTP_signup = async (email: string) => {
+    try {
+      const success = await requestOTP(email);
+      if (!success) {
+        throw new Error("Failed to send OTP. Please try again.");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Signup failed:", error);
+      throw error;
+    }
+  };
+
+  const verifyOTP = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    confirmPassword: string,
+    code: string,
+  ): Promise<boolean> => {
+    try {
+      const success = await verify(email, code);
+      if (!success) {
+        throw new Error(
+          "OTP verification failed. Please check the code and try again.",
+        );
+      }
+
+      const user = await signup(
+        firstName,
+        lastName,
+        email,
+        password,
+        confirmPassword,
+      );
+
+      if (!user) throw new Error("Signup failed. Please try again.");
+
+      setUser(user);
+      router.replace("/");
+      return true;
+    } catch (error) {
+      console.error("OTP verification failed:", error);
       throw error;
     }
   };
@@ -205,7 +269,9 @@ export default function AuthProvider({
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+    <AuthContext.Provider
+      value={{ user, login, OTP_signup, verifyOTP, logout, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

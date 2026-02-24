@@ -11,12 +11,14 @@ export type UserProfile = {
 export type AuthContext = {
   user: UserProfile | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (
+  OTP_signup: (email: string) => Promise<boolean>;
+  verifyOTP: (
     firstName: string,
     lastName: string,
     email: string,
     password: string,
     confirmPassword: string,
+    code: string,
   ) => Promise<void>;
   logout: () => void;
   loading: boolean;
