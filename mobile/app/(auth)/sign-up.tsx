@@ -11,7 +11,7 @@ import {
 import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { useAuthStyles } from "./auth-stylesheet";
+import useAuthStyles from "./auth-stylesheet";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -109,6 +109,7 @@ export default function SignUp() {
           email,
           password,
           confirmPassword,
+          purpose: "signup",
         },
       });
     } catch (error) {

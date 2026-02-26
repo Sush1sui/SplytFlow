@@ -10,7 +10,7 @@ export type UserProfile = {
 
 export type AuthContext = {
   user: UserProfile | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   OTP_signup: (email: string) => Promise<boolean>;
   verifyOTP: (
     firstName: string,
@@ -19,9 +19,19 @@ export type AuthContext = {
     password: string,
     confirmPassword: string,
     code: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
+};
+
+export type SignUpParams = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  code?: string;
+  purpose?: "signup" | "password-reset";
 };
 
 export interface LoginResponse {

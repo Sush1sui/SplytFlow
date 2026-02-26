@@ -135,8 +135,10 @@ export default function AuthProvider({
         SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
       ]);
 
+      if (!data.user) throw new Error("Login failed. Please try again.");
+
       setUser(data.user);
-      router.replace("/");
+      return true;
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -213,7 +215,7 @@ export default function AuthProvider({
     password: string,
     confirmPassword: string,
     code: string,
-  ): Promise<boolean> => {
+  ) => {
     try {
       const success = await verify(email, code);
       if (!success) {
@@ -233,7 +235,6 @@ export default function AuthProvider({
       if (!user) throw new Error("Signup failed. Please try again.");
 
       setUser(user);
-      router.replace("/");
       return true;
     } catch (error) {
       console.error("OTP verification failed:", error);

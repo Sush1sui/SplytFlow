@@ -3,7 +3,7 @@ import type { AuthContext as AuthContextType } from "../types/auth";
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  login: async () => {},
+  login: async () => Promise.resolve(false),
   OTP_signup: (email: string) => Promise.resolve(false),
   verifyOTP: async (
     firstName: string,
@@ -12,7 +12,7 @@ export const AuthContext = createContext<AuthContextType>({
     password: string,
     confirmPassword: string,
     code: string,
-  ) => {},
+  ) => Promise.resolve(false),
   logout: () => {},
   loading: true,
 });

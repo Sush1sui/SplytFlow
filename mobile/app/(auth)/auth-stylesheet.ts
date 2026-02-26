@@ -1,6 +1,6 @@
 import { StyleSheet, useWindowDimensions } from "react-native";
 
-export function useAuthStyles() {
+export default function useAuthStyles() {
   const { width } = useWindowDimensions();
 
   const isTablet = width >= 768;
