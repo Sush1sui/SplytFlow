@@ -1,4 +1,4 @@
-import * as userService from "./db/user/service";
+import * as userService from "../db/user/service";
 import {
   signAccessToken,
   generateRefreshToken,

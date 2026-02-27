@@ -3,10 +3,15 @@ import { apiFetcher } from "./api-fetcher";
 import { API_BASE_URL } from "@/constants/api";
 
 // SecureStore key for the session token. Must be non-empty and may contain only
-// alphanumeric characters, '.', '-' and '_'. Override with env var `TOKEN_KEY`.
+// alphanumeric characters, '.', '-' and '_'. Expo inlines EXPO_PUBLIC_*
+// variables at build time from your .env file.
 const TOKEN_KEY =
-  (process.env.TOKEN_KEY && process.env.TOKEN_KEY.trim()) ||
-  "splytflow_session_token";
+  process.env.EXPO_PUBLIC_TOKEN_KEY && process.env.EXPO_PUBLIC_TOKEN_KEY.trim();
+if (!TOKEN_KEY) {
+  throw new Error(
+    "EXPO_PUBLIC_TOKEN_KEY environment variable is required and cannot be empty",
+  );
+}
 
 /**
  * Get the stored session token

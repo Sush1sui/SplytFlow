@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { isSignedIn } from "../middleware/isSignedIn";
 import * as authService from "../services/auth/service";
 import type { AppVariables } from "../util/auth/types";
-import { create as otpCreate, verify } from "../services/auth/db/otp/service";
+import { create as otpCreate, verify } from "../services/db/otp/service";
 
 const auth = new Hono<{ Variables: AppVariables }>();
 

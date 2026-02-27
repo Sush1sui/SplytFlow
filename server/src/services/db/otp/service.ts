@@ -1,10 +1,10 @@
-import dbClient from "../../../../db/dbClient";
-import { validateEmail, validatePurpose } from "../../../../util/auth/util";
+import dbClient from "../../../db/dbClient";
+import { validateEmail, validatePurpose } from "../../../util/auth/util";
 import {
   capitalizeWords,
   removeHyphensAndReplaceWithWhitespace,
-} from "../../../../util/util";
-import { emailTemplate, sendEmail } from "../../../email/service"; // send OTP messages
+} from "../../../util/util";
+import { emailTemplate, sendEmail } from "../../email/service"; // send OTP messages
 
 export async function create(email: string, purpose = "signup") {
   try {

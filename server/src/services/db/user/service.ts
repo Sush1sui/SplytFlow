@@ -1,6 +1,6 @@
 import "bun";
-import dbClient from "../../../../db/dbClient";
-import { validateSignin, validateSignup } from "../../../../util/auth/util";
+import dbClient from "../../../db/dbClient";
+import { validateSignin, validateSignup } from "../../../util/auth/util";
 
 export async function create(
   firstName: string,

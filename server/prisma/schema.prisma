@@ -60,6 +60,8 @@ model Split {
   value Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
 }
 
 model Sale {
@@ -71,4 +73,6 @@ model Sale {
   amount Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, createdAt])
 }

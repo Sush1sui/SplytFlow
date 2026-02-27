@@ -13,14 +13,25 @@ import type {
 import { requestOTP, verify } from "../utils/otp";
 import { validateSignup } from "../utils/auth-validate";
 
-// SecureStore keys. Must be non-empty and may contain only alphanumeric characters, '.', '-' and '_'.
+// SecureStore keys. Must be non-empty and may contain only
+// alphanumeric characters, '.', '-' and '_'. Expo inlines EXPO_PUBLIC_*
+// variables at build time from your .env file.
 const TOKEN_KEY =
-  (process.env.TOKEN_KEY && process.env.TOKEN_KEY.trim()) ||
-  "splytflow_session_token";
+  process.env.EXPO_PUBLIC_TOKEN_KEY && process.env.EXPO_PUBLIC_TOKEN_KEY.trim();
+if (!TOKEN_KEY) {
+  throw new Error(
+    "EXPO_PUBLIC_TOKEN_KEY environment variable is required and cannot be empty",
+  );
+}
 
 const REFRESH_TOKEN_KEY =
-  (process.env.REFRESH_TOKEN_KEY && process.env.REFRESH_TOKEN_KEY.trim()) ||
-  "splytflow_refresh_token";
+  process.env.EXPO_PUBLIC_REFRESH_TOKEN_KEY &&
+  process.env.EXPO_PUBLIC_REFRESH_TOKEN_KEY.trim();
+if (!REFRESH_TOKEN_KEY) {
+  throw new Error(
+    "EXPO_PUBLIC_REFRESH_TOKEN_KEY environment variable is required and cannot be empty",
+  );
+}
 
 export default function AuthProvider({
   children,
@@ -41,8 +52,9 @@ export default function AuthProvider({
    */
   const silentRefresh = async (): Promise<string | null> => {
     try {
-      const storedRefreshToken =
-        await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      const storedRefreshToken = await SecureStore.getItemAsync(
+        REFRESH_TOKEN_KEY!,
+      );
 
       if (!storedRefreshToken) return null;
 
@@ -57,8 +69,8 @@ export default function AuthProvider({
 
       // Persist the rotated tokens
       await Promise.all([
-        SecureStore.setItemAsync(TOKEN_KEY, data.token),
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
+        SecureStore.setItemAsync(TOKEN_KEY!, data.token),
+        SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
       ]);
 
       return data.token;
@@ -69,8 +81,8 @@ export default function AuthProvider({
 
   const clearTokens = async () => {
     await Promise.all([
-      SecureStore.deleteItemAsync(TOKEN_KEY),
-      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+      SecureStore.deleteItemAsync(TOKEN_KEY!),
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY!),
     ]);
     setUser(null);
   };
@@ -78,7 +90,7 @@ export default function AuthProvider({
   const checkExistingSession = async () => {
     try {
       setLoading(true);
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const token = await SecureStore.getItemAsync(TOKEN_KEY!);
 
       if (!token) return;
 
@@ -131,8 +143,8 @@ export default function AuthProvider({
       );
 
       await Promise.all([
-        SecureStore.setItemAsync(TOKEN_KEY, data.token),
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
+        SecureStore.setItemAsync(TOKEN_KEY!, data.token),
+        SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
       ]);
 
       if (!data.user) throw new Error("Login failed. Please try again.");
@@ -181,8 +193,8 @@ export default function AuthProvider({
       );
 
       await Promise.all([
-        SecureStore.setItemAsync(TOKEN_KEY, data.token),
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
+        SecureStore.setItemAsync(TOKEN_KEY!, data.token),
+        SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
       ]);
 
       // setUser(data.user);
@@ -245,8 +257,8 @@ export default function AuthProvider({
   const logout = async () => {
     try {
       const [token, refreshToken] = await Promise.all([
-        SecureStore.getItemAsync(TOKEN_KEY),
-        SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
+        SecureStore.getItemAsync(TOKEN_KEY!),
+        SecureStore.getItemAsync(REFRESH_TOKEN_KEY!),
       ]);
 
       if (token) {

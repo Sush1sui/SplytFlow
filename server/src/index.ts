@@ -1,7 +1,12 @@
 import { Hono } from "hono";
+
+// Import routes
 import auth from "./routes/auth";
+import split from "./routes/split";
+import sales from "./routes/sales";
+
 import { runJobs } from "./util/util";
-import { runCleanup } from "./services/auth/db/otp/service";
+import { runCleanup } from "./services/db/otp/service";
 
 const app = new Hono();
 
@@ -11,6 +16,8 @@ app.get("/", (c) => {
 
 // ─── Routes ───────────────────────────────────────────────────────
 app.route("/auth", auth);
+app.route("/split", split);
+app.route("/sales", sales);
 
 // ─── Error Handling ───────────────────────────────────────────────
 app.onError((err, c) => {
