@@ -8,6 +8,10 @@ const auth = new Elysia({ prefix: "/api/auth" })
    * POST /auth/signin
    * Body: { email, password }
    * Response: { token, user }
+   * Possible errors:
+   * - 400: Invalid input (e.g. missing fields)
+   * - 401: Invalid credentials
+   * - 500: Server error
    */
   .post("/signin", async ({ body, set }) => {
     try {

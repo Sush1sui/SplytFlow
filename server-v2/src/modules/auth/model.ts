@@ -14,13 +14,6 @@ export interface JWTPayload {
   iat: number;
 }
 
-export interface SendEmailOptions {
-  to: string;
-  subject: string;
-  text?: string;
-  html?: string;
-}
-
 export type UserProfile = {
   id: string;
   firstName: string;

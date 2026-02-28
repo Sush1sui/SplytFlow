@@ -3,7 +3,8 @@ import { PrismaClient } from "./generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 // routes
-import auth from './modules/auth'
+import auth from "./modules/auth";
+import otp from "./modules/otp";
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL || "" });
 export const dbClient = new PrismaClient({ adapter: pool });
@@ -11,6 +12,7 @@ export const dbClient = new PrismaClient({ adapter: pool });
 const app = new Elysia()
   .get("/", () => "Hello Elysia")
   .use(auth)
+  .use(otp)
   .listen(process.env.PORT || 3001);
 
 console.log(
