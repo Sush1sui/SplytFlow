@@ -4,6 +4,7 @@ import { db } from "./db";
 // routes
 import auth from "./modules/auth";
 import otp from "./modules/otp";
+import split from "./modules/split";
 
 export { db };
 
@@ -11,6 +12,7 @@ const app = new Elysia()
   .get("/", () => "Hello Elysia")
   .use(auth)
   .use(otp)
+  .use(split)
   .listen(process.env.PORT || 3001);
 
 console.log(
