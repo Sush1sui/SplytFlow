@@ -16,7 +16,7 @@ import {
 import { validateSignup } from "../../utils/auth";
 import { isSignedIn } from "../../plugins/isSignedIn";
 
-const auth = new Elysia({ prefix: "/api/auth" })
+const auth = new Elysia({ prefix: "/auth" })
   /**
    * POST /auth/signin
    * Body: { email, password }

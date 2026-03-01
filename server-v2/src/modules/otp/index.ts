@@ -2,7 +2,7 @@ import Elysia from "elysia";
 import { GenerateOtpBody, VerifyOtpBody } from "./model";
 import { create, verify } from "./service";
 
-const otp = new Elysia({ prefix: "/api/otp" })
+const otp = new Elysia({ prefix: "/otp" })
   /**
    * POST /otp
    * Body: { email, purpose }

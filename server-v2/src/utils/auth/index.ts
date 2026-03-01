@@ -97,9 +97,7 @@ export function validateEmail(email: string) {
 }
 
 export function validatePurpose(purpose: string) {
-  const validPurposes = process.env.PURPOSES
-    ? process.env.PURPOSES.split(",").map((p) => p.trim())
-    : [];
+  const validPurposes = ["signup", "password-reset"];
   return validPurposes.includes(purpose);
 }
 

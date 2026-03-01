@@ -1,6 +1,6 @@
 export type GenerateOtpBody = {
   email: string;
-  purpose: "password_reset" | "signup";
+  purpose: "signup" | "password-reset";
 };
 
 export type SendEmailOptions = {
@@ -12,6 +12,6 @@ export type SendEmailOptions = {
 
 export type VerifyOtpBody = {
   email: string;
-  purpose: "password_reset" | "signup";
+  purpose: "signup" | "password-reset";
   code: string;
 };

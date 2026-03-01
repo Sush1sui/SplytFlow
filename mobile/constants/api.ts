@@ -28,7 +28,7 @@ export const API_ENDPOINTS = {
     LOGOUT_ALL: "/auth/logout-all",
     REFRESH: "/auth/refresh",
     ME: "/auth/me",
-    OTP: "/auth/otp",
-    OTP_VERIFY: "/auth/otp/verify",
+    OTP: "/otp",
+    OTP_VERIFY: "/otp/verify",
   },
 } as const;
