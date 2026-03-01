@@ -44,7 +44,9 @@ export async function findByEmailAndPassword(email: string, password: string) {
     if (!validateSignin(email, password))
       throw new Error("Invalid signin data");
 
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
 
     if (!user) throw new Error("User not found");
 
