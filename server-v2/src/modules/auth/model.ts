@@ -45,3 +45,11 @@ export type SignUpBody = {
   password: string;
   confirmPassword: string;
 };
+
+export type RefreshTokenBody = {
+  refreshToken: string;
+};
+
+export type LogoutSingleBody = {
+  refreshToken?: string;
+};
