@@ -1,13 +1,11 @@
 import { Elysia } from "elysia";
-import { PrismaClient } from "./generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { db } from "./db";
 
 // routes
 import auth from "./modules/auth";
 import otp from "./modules/otp";
 
-const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL || "" });
-export const dbClient = new PrismaClient({ adapter: pool });
+export { db };
 
 const app = new Elysia()
   .get("/", () => "Hello Elysia")
@@ -18,3 +16,17 @@ const app = new Elysia()
 console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
 );
+
+// // Track Memory Usage Every 1 second
+setInterval(() => {
+  const memoryUsage = process.memoryUsage();
+  console.log(
+    `Memory Usage - RSS: ${(memoryUsage.rss / 1024 / 1024).toFixed(
+      2,
+    )} MB, Heap Total: ${(memoryUsage.heapTotal / 1024 / 1024).toFixed(
+      2,
+    )} MB, Heap Used: ${(memoryUsage.heapUsed / 1024 / 1024).toFixed(
+      2,
+    )} MB, External: ${(memoryUsage.external / 1024 / 1024).toFixed(2)} MB`,
+  );
+}, 1000);

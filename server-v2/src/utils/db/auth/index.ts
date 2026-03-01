@@ -1,4 +1,6 @@
-import { dbClient } from "../../..";
+import { db } from "../../../db";
+import { users } from "../../../db/schema";
+import { eq } from "drizzle-orm";
 import { validateSignin, validateSignup } from "../../auth";
 
 export async function create(
@@ -14,32 +16,21 @@ export async function create(
 
     const hashedPassword = await Bun.password.hash(password);
 
-    // attempt to create user; catch unique constraint violation explicitly
     try {
-      const user = await dbClient.user.create({
-        data: {
-          firstName,
-          lastName,
-          email,
-          password: hashedPassword,
-        },
-      });
+      const [user] = await db
+        .insert(users)
+        .values({ firstName, lastName, email, password: hashedPassword })
+        .returning();
 
       if (!user) throw new Error("Failed to create user");
       return user;
-    } catch (prismaError) {
-      // Prisma uses P2002 for unique constraint failures. The error object
-      // may not satisfy instanceof checks due to differing module instances,
-      // so test by shape instead. meta.target can be a string[], string, or
-      // undefined depending on the Prisma version and provider, so we only
-      // check the code. Email is the sole unique field on User, so P2002
-      // always means a duplicate email.
-      const maybe = prismaError as { code?: string };
-      if (maybe.code === "P2002") {
+    } catch (dbError) {
+      // PostgreSQL unique violation code
+      const maybe = dbError as { code?: string };
+      if (maybe.code === "23505") {
         throw new Error("Email is already in use");
       }
-      // re‑throw other errors unchanged
-      throw prismaError;
+      throw dbError;
     }
   } catch (error) {
     throw error instanceof Error
@@ -53,9 +44,7 @@ export async function findByEmailAndPassword(email: string, password: string) {
     if (!validateSignin(email, password))
       throw new Error("Invalid signin data");
 
-    const user = await dbClient.user.findUnique({
-      where: { email },
-    });
+    const [user] = await db.select().from(users).where(eq(users.email, email));
 
     if (!user) throw new Error("User not found");
 

@@ -4,7 +4,9 @@ import {
   hashRefreshToken,
   REFRESH_TOKEN_EXPIRY_MS,
 } from "../../utils/auth";
-import { dbClient } from "../..";
+import { db } from "../../db";
+import { users, refreshTokens } from "../../db/schema";
+import { eq, sql } from "drizzle-orm";
 import type { AuthResponse, UserProfile } from "./model";
 import { create, findByEmailAndPassword } from "../../utils/db/auth";
 
@@ -46,9 +48,9 @@ async function issueTokenPair(
   const { rawToken, tokenHash } = generateRefreshToken();
   const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS);
 
-  await dbClient.refreshToken.create({
-    data: { tokenHash, userId, expiresAt: refreshTokenExpiresAt },
-  });
+  await db
+    .insert(refreshTokens)
+    .values({ tokenHash, userId, expiresAt: refreshTokenExpiresAt });
 
   return { token, expiresAt, refreshToken: rawToken, refreshTokenExpiresAt };
 }
@@ -116,7 +118,7 @@ export async function signup(
 
 export async function me(userId: string): Promise<{ user: UserProfile }> {
   try {
-    const user = await dbClient.user.findUnique({ where: { id: userId } });
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
 
     if (!user) throw new Error("User not found");
 
@@ -137,20 +139,34 @@ export async function refresh(rawRefreshToken: string): Promise<{
   try {
     const tokenHash = hashRefreshToken(rawRefreshToken);
 
-    const stored = await dbClient.refreshToken.findUnique({
-      where: { tokenHash },
-      include: { user: true },
-    });
+    const [stored] = await db
+      .select({
+        id: refreshTokens.id,
+        tokenHash: refreshTokens.tokenHash,
+        expiresAt: refreshTokens.expiresAt,
+        user: {
+          id: users.id,
+          email: users.email,
+          tokenVersion: users.tokenVersion,
+        },
+      })
+      .from(refreshTokens)
+      .innerJoin(users, eq(refreshTokens.userId, users.id))
+      .where(eq(refreshTokens.tokenHash, tokenHash));
 
     if (!stored) throw new Error("Invalid refresh token");
     if (stored.expiresAt < new Date()) {
       // Clean up the expired token
-      await dbClient.refreshToken.delete({ where: { tokenHash } });
+      await db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, tokenHash));
       throw new Error("Refresh token has expired, please log in again");
     }
 
     // Token rotation — delete old refresh token and issue a fresh pair
-    await dbClient.refreshToken.delete({ where: { tokenHash } });
+    await db
+      .delete(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash));
 
     const { token, expiresAt, refreshToken, refreshTokenExpiresAt } =
       await issueTokenPair(
@@ -181,8 +197,9 @@ export async function logoutSingle(
   try {
     if (rawRefreshToken) {
       const tokenHash = hashRefreshToken(rawRefreshToken);
-      await dbClient.refreshToken
-        .delete({ where: { tokenHash } })
+      await db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, tokenHash))
         .catch(() => {}); // ignore if already gone
     }
   } catch {
@@ -194,12 +211,12 @@ export async function logoutAll(userId: string): Promise<void> {
   try {
     await Promise.all([
       // Bump tokenVersion to invalidate all access tokens
-      dbClient.user.update({
-        where: { id: userId },
-        data: { tokenVersion: { increment: 1 } },
-      }),
+      db
+        .update(users)
+        .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+        .where(eq(users.id, userId)),
       // Delete all refresh tokens for this user
-      dbClient.refreshToken.deleteMany({ where: { userId } }),
+      db.delete(refreshTokens).where(eq(refreshTokens.userId, userId)),
     ]);
   } catch {
     throw new Error("Failed to invalidate all tokens");

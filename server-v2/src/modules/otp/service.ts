@@ -1,4 +1,6 @@
-import { dbClient } from "../..";
+import { db } from "../../db";
+import { otps } from "../../db/schema";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { validateEmail, validatePurpose } from "../../utils/auth";
 import {
   capitalizeWords,
@@ -16,13 +18,14 @@ export async function create(email: string, purpose = "signup") {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
 
-    const otp = await dbClient.oTP.upsert({
-      where: {
-        email_purpose: { email, purpose },
-      },
-      update: { code, expiresAt },
-      create: { email, purpose, code, expiresAt },
-    });
+    const [otp] = await db
+      .insert(otps)
+      .values({ email, purpose, code, expiresAt })
+      .onConflictDoUpdate({
+        target: [otps.email, otps.purpose],
+        set: { code, expiresAt },
+      })
+      .returning();
 
     if (!otp) throw new Error("Failed to create OTP");
 
@@ -41,7 +44,7 @@ export async function create(email: string, purpose = "signup") {
     });
 
     if (!info) {
-      otp && (await dbClient.oTP.delete({ where: { id: otp.id } })); // Clean up OTP if email fails
+      otp && (await db.delete(otps).where(eq(otps.id, otp.id))); // Clean up OTP if email fails
       throw new Error("Failed to send OTP email");
     }
 
@@ -63,28 +66,29 @@ export async function verify(email: string, code: string, purpose = "signup") {
       throw new Error("Invalid input");
     if (!validatePurpose(purpose)) throw new Error("Invalid purpose");
 
-    const otp = await dbClient.oTP.findFirst({
-      where: {
-        email,
-        code,
-        purpose,
-        expiresAt: {
-          gt: now,
-        },
-      },
-    });
+    const [otp] = await db
+      .select()
+      .from(otps)
+      .where(
+        and(
+          eq(otps.email, email),
+          eq(otps.code, code),
+          eq(otps.purpose, purpose),
+          gt(otps.expiresAt, now),
+        ),
+      );
 
     if (!otp) throw new Error("OTP not found or expired");
 
     if (otp.expiresAt < now) {
-      await dbClient.oTP.delete({ where: { id: otp.id } });
+      await db.delete(otps).where(eq(otps.id, otp.id));
       throw new Error("OTP has expired");
     }
 
     if (otp.code !== code) throw new Error("Invalid OTP code");
 
     // OTP is valid, delete it to prevent reuse
-    await dbClient.oTP.delete({ where: { id: otp.id } });
+    await db.delete(otps).where(eq(otps.id, otp.id));
 
     return true;
   } catch (error) {
@@ -98,7 +102,7 @@ export async function runCleanup(minuteInterval = 5) {
       try {
         // Use raw SQL to bypass Prisma's UTF-8 decoding, which throws on
         // any corrupted rows that may exist in the table.
-        await dbClient.$executeRaw`DELETE FROM "OTP" WHERE "expiresAt" < NOW()`;
+        await db.execute(sql`DELETE FROM "OTP" WHERE "expiresAt" < NOW()`);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         const code = (error as { code?: string }).code;
