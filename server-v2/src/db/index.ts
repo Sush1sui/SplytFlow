@@ -66,13 +66,34 @@
  *  db:generate  → Generate SQL migration file from schema diff
  *  db:migrate   → Run pending migration files on the database
  *  db:studio    → Open visual database browser
+ *
+ *  **Pooling note**: Neon drops idle connections quickly. the
+ *  bun-sql driver will reconnect automatically, but if you horizontally
+ *  scale the server you may hit the connection limit. consider putting
+ *  a proxy (Neon pooler, pgbouncer, etc.) in front of the database and
+ *  share a single URL across instances.
+ *
  * ============================================================
  */
 
 import { drizzle } from "drizzle-orm/bun-sql";
 import * as schema from "./schema";
 
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
+
 export const db = drizzle({
-  connection: process.env.DATABASE_URL!,
+  connection: {
+    url: process.env.DATABASE_URL,
+    // Keep the pool small for Neon's serverless PostgreSQL.
+    // Neon's free tier allows ~100 concurrent connections total.
+    // If you scale to multiple processes, lower max further OR
+    // point DATABASE_URL to Neon's PgBouncer pooler endpoint instead.
+    max: 10,
+    // Drop idle connections after 30 s so Neon doesn't accumulate
+    // open sockets from idle server processes.
+    idleTimeout: 30,
+    // Fail fast if no connection slot is free within 10 s.
+    connectionTimeout: 10,
+  },
   schema,
 });

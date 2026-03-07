@@ -12,43 +12,9 @@ import { CreateOrUpdateBody, DeleteBody } from "./model";
 const sales = new Elysia({ prefix: "/sales" })
   /**
    * GET /sales/:id
-   * Response: 200 { sale: Sale } | 400 { error: string } | 404 { error: string } | 500 { error: string }
-   * Possible errors:
-   * - 400: Missing userId
-   * - 404: No sales found for this user today
-   * - 500: Error fetching sales
-   */
-  .get("/:id", async ({ params, set }) => {
-    try {
-      const { id } = params;
-
-      if (!id) {
-        set.status = 400;
-        return { error: "userId is required" };
-      }
-
-      const sales = await getSaleToday(id);
-      if (!sales) {
-        set.status = 404;
-        return { error: "No sales found for this user today" };
-      }
-
-      set.status = 200;
-      return sales;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      set.status = 500;
-      return { error: message };
-    }
-  })
-  /**
-   * GET /sales/:id?startDate=2024-01-01&endDate=2024-01-31
-   * Response: 200 { sales: Sale[] } | 400 { error: string } | 404 { error: string } | 500 { error: string }
-   * Possible errors:
-   * - 400: Missing userId, startDate, or endDate
-   * - 404: No sales found for this user in the specified time range
-   * - 500: Error fetching sales
+   * Query params (optional): startDate, endDate.
+   * If the date range is provided the call returns every sale in that
+   * interval; otherwise the current‑day total is returned.
    */
   .get("/:id", async ({ params, query, set }) => {
     try {
@@ -59,26 +25,34 @@ const sales = new Elysia({ prefix: "/sales" })
         set.status = 400;
         return { error: "userId is required" };
       }
-      if (!startDate || !endDate) {
-        set.status = 400;
-        return { error: "startDate and endDate are required" };
+
+      // branch on presence of range parameters
+      if (startDate && endDate) {
+        const sales = await getSalesByTimeRange(
+          id,
+          new Date(startDate),
+          new Date(endDate),
+        );
+
+        if (!sales || sales.length === 0) {
+          set.status = 404;
+          return {
+            error: "No sales found for this user in the specified time range",
+          };
+        }
+
+        set.status = 200;
+        return sales;
+      } else {
+        const today = await getSaleToday(id);
+        if (!today) {
+          set.status = 404;
+          return { error: "No sales found for this user today" };
+        }
+
+        set.status = 200;
+        return today;
       }
-
-      const sales = await getSalesByTimeRange(
-        id,
-        new Date(startDate),
-        new Date(endDate),
-      );
-
-      if (!sales || sales.length === 0) {
-        set.status = 404;
-        return {
-          error: "No sales found for this user in the specified time range",
-        };
-      }
-
-      set.status = 200;
-      return sales;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "An unknown error occurred";
@@ -86,6 +60,7 @@ const sales = new Elysia({ prefix: "/sales" })
       return { error: message };
     }
   })
+
   /**
    * GET /sales/:id/total?startDate=2024-01-01&endDate=2024-01-31
    * Response: 200 { totalSales: number } | 400 { error: string } | 500 { error: string }
@@ -122,6 +97,7 @@ const sales = new Elysia({ prefix: "/sales" })
       return { error: message };
     }
   })
+
   /**
    * POST /sales
    * Body: { userId, amount }

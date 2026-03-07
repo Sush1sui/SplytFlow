@@ -7,6 +7,7 @@ import {
   removeHyphensAndReplaceWithWhitespace,
 } from "../../utils";
 import { emailTemplate, sendEmail } from "../../utils/email";
+import { randomInt } from "crypto"; // use secure RNG for OTPs
 
 export async function create(email: string, purpose = "signup") {
   try {
@@ -14,8 +15,8 @@ export async function create(email: string, purpose = "signup") {
       throw new Error("Invalid email format or purpose");
     if (!validatePurpose(purpose)) throw new Error("Invalid purpose");
 
-    // Generate a 6-digit OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate a cryptographically strong 6‑digit OTP
+    const code = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
 
     const [otp] = await db
@@ -29,7 +30,10 @@ export async function create(email: string, purpose = "signup") {
 
     if (!otp) throw new Error("Failed to create OTP");
 
-    const info = await sendEmail({
+    // send email asynchronously so the request doesn’t stall waiting for
+    // the SMTP server. failures are logged but do not prevent the API
+    // from returning the OTP record
+    sendEmail({
       to: email,
       subject: "Your verification code – SplytFlow",
       text: `Your verification code for ${purpose} is: ${code}. It expires in 5 minutes.`,
@@ -41,12 +45,19 @@ export async function create(email: string, purpose = "signup") {
         footerNote:
           "If you did not request this code, you can safely ignore this email.",
       }),
-    });
+    }).catch((err) => {
+      console.error("Failed to send OTP email (async):", err);
 
-    if (!info) {
-      otp && (await db.delete(otps).where(eq(otps.id, otp.id))); // Clean up OTP if email fails
-      throw new Error("Failed to send OTP email");
-    }
+      // clean up the OTP since the user won't receive it
+      db.delete(otps)
+        .where(eq(otps.id, otp.id))
+        .catch((deleteErr) => {
+          console.error(
+            "Failed to delete OTP after email send failure (async):",
+            deleteErr,
+          );
+        });
+    });
 
     return {
       ...otp,
@@ -80,11 +91,8 @@ export async function verify(email: string, code: string, purpose = "signup") {
 
     if (!otp) throw new Error("OTP not found or expired");
 
-    if (otp.expiresAt < now) {
-      await db.delete(otps).where(eq(otps.id, otp.id));
-      throw new Error("OTP has expired");
-    }
-
+    // SQL condition `gt(otps.expiresAt, now)` already guarantees the row is
+    // not expired, so the check below is unnecessary.
     if (otp.code !== code) throw new Error("Invalid OTP code");
 
     // OTP is valid, delete it to prevent reuse

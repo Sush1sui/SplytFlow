@@ -1,6 +1,10 @@
 import Elysia from "elysia";
 import { GenerateOtpBody, VerifyOtpBody } from "./model";
 import { create, verify } from "./service";
+import { checkRateLimit } from "../../utils/rate-limit";
+
+// 3 OTP requests per 10 minutes per IP
+const OTP_RATE_LIMIT = { max: 3, windowMs: 10 * 60 * 1000 };
 
 const otp = new Elysia({ prefix: "/otp" })
   /**
@@ -9,10 +13,26 @@ const otp = new Elysia({ prefix: "/otp" })
    * Response: { otp }
    * Possible errors:
    * - 400: Invalid input (e.g. missing fields, invalid email format)
+   * - 429: Rate limit exceeded
    * - 500: Server error
    */
-  .post("/", async ({ body, set }) => {
+  .post("/", async ({ body, set, request }) => {
     try {
+      const ip =
+        request.headers.get("x-forwarded-for") ??
+        request.headers.get("x-real-ip") ??
+        "unknown";
+      if (
+        !checkRateLimit(
+          `otp:${ip}`,
+          OTP_RATE_LIMIT.max,
+          OTP_RATE_LIMIT.windowMs,
+        )
+      ) {
+        set.status = 429;
+        return { error: "Too many OTP requests. Please try again later." };
+      }
+
       const { email, purpose } = body as GenerateOtpBody;
 
       if (!email || !purpose) {
@@ -38,6 +58,7 @@ const otp = new Elysia({ prefix: "/otp" })
       };
     }
   })
+
   /**
    * POST /otp/verify
    * Body: { email, purpose, code }

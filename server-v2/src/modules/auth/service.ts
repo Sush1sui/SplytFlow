@@ -55,6 +55,11 @@ async function issueTokenPair(
   return { token, expiresAt, refreshToken: rawToken, refreshTokenExpiresAt };
 }
 
+// NOTE: Bun.password.hash/verify are CPU‑intensive and may block the
+// event loop under heavy concurrency.  In production you should
+// either introduce rate‑limiting on the /auth routes or delegate the
+// hashing work to a worker thread. A very simple approach is to keep a
+// small in‑memory token bucket per IP.
 export async function signin(
   email: string,
   password: string,

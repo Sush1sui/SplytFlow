@@ -15,6 +15,10 @@ import {
 } from "./model";
 import { validateSignup } from "../../utils/auth";
 import { isSignedIn } from "../../plugins/isSignedIn";
+import { checkRateLimit } from "../../utils/rate-limit";
+
+// 5 attempts per 15 minutes per IP for CPU-heavy auth endpoints
+const AUTH_RATE_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
 
 const auth = new Elysia({ prefix: "/auth" })
   /**
@@ -26,8 +30,23 @@ const auth = new Elysia({ prefix: "/auth" })
    * - 401: Invalid credentials
    * - 500: Server error
    */
-  .post("/signin", async ({ body, set }) => {
+  .post("/signin", async ({ body, set, request }) => {
     try {
+      const ip =
+        request.headers.get("x-forwarded-for") ??
+        request.headers.get("x-real-ip") ??
+        "unknown";
+      if (
+        !checkRateLimit(
+          `signin:${ip}`,
+          AUTH_RATE_LIMIT.max,
+          AUTH_RATE_LIMIT.windowMs,
+        )
+      ) {
+        set.status = 429;
+        return { error: "Too many requests. Please try again later." };
+      }
+
       const { email, password } = body as SignInBody;
 
       if (!email || !password) {
@@ -47,6 +66,7 @@ const auth = new Elysia({ prefix: "/auth" })
       };
     }
   })
+
   /**
    * POST /auth/signup
    * Body: { firstName, lastName, email, password, confirmPassword }
@@ -56,8 +76,23 @@ const auth = new Elysia({ prefix: "/auth" })
    * - 409: Email already in use
    * - 500: Server error
    */
-  .post("/signup", async ({ body, set }) => {
+  .post("/signup", async ({ body, set, request }) => {
     try {
+      const ip =
+        request.headers.get("x-forwarded-for") ??
+        request.headers.get("x-real-ip") ??
+        "unknown";
+      if (
+        !checkRateLimit(
+          `signup:${ip}`,
+          AUTH_RATE_LIMIT.max,
+          AUTH_RATE_LIMIT.windowMs,
+        )
+      ) {
+        set.status = 429;
+        return { error: "Too many requests. Please try again later." };
+      }
+
       const { firstName, lastName, email, password, confirmPassword } =
         body as SignUpBody;
 
@@ -94,6 +129,7 @@ const auth = new Elysia({ prefix: "/auth" })
       return { error: message };
     }
   })
+
   // ─── Semi-public Routes ──────────────────────────────────────────
   /**
    * POST /auth/refresh
@@ -128,6 +164,7 @@ const auth = new Elysia({ prefix: "/auth" })
       return { error: message };
     }
   })
+
   // ─── Protected Routes ───────────────────────────────────────────
   .guard({}, (app) =>
     app
@@ -150,6 +187,7 @@ const auth = new Elysia({ prefix: "/auth" })
           return { error: message };
         }
       })
+
       /**
        * POST /auth/logout
        * Body: { refreshToken? }
@@ -172,6 +210,7 @@ const auth = new Elysia({ prefix: "/auth" })
           return { error: message };
         }
       })
+
       /**
        * POST /auth/logout-all
        * Response: { message }

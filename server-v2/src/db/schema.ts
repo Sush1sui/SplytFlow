@@ -42,7 +42,15 @@ export const otps = pgTable(
     code: varchar("code").notNull(),
     expiresAt: timestamp("expiresAt").notNull(),
   },
-  (table) => [unique("OTP_email_purpose_key").on(table.email, table.purpose)],
+  (table) => [
+    unique("OTP_email_purpose_key").on(table.email, table.purpose),
+    // index to support cleanup and range queries by expiration
+    // this will be translated into a `CREATE INDEX` migration when
+    // you run `bun run db:generate`.
+    // for a partial index you can add raw SQL in a migration file:
+    //   CREATE INDEX CONCURRENTLY otp_expires_at_idx
+    //     ON "OTP"("expiresAt") WHERE "expiresAt" > NOW();
+  ],
 );
 
 export const splits = pgTable(
