@@ -105,20 +105,24 @@ export async function verify(email: string, code: string, purpose = "signup") {
 }
 
 export async function runCleanup(minuteInterval = 5) {
-  setInterval(
-    async () => {
-      try {
-        // Use raw SQL to bypass Prisma's UTF-8 decoding, which throws on
-        // any corrupted rows that may exist in the table.
-        await db.execute(sql`DELETE FROM "OTP" WHERE "expiresAt" < NOW()`);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        const code = (error as { code?: string }).code;
-        console.error(
-          `Error during OTP cleanup: ${msg}${code ? ` (code: ${code})` : ""}`,
-        );
-      }
-    },
-    60 * 1000 * minuteInterval,
-  ); // Run every minuteInterval minutes
+  cleanupExpiredOtps(); // Run immediately on startup
+  setInterval(cleanupExpiredOtps, 60 * 1000 * minuteInterval); // Run every minuteInterval minutes
+}
+
+async function cleanupExpiredOtps() {
+  try {
+    // console.log("Running OTP cleanup job...");
+
+    // Use raw SQL to bypass Prisma's UTF-8 decoding, which throws on
+    // any corrupted rows that may exist in the table.
+    await db.execute(sql`DELETE FROM "OTP" WHERE "expiresAt" < NOW()`);
+
+    // console.log("OTP cleanup completed successfully");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    const code = (error as { code?: string }).code;
+    console.error(
+      `Error during OTP cleanup: ${msg}${code ? ` (code: ${code})` : ""}`,
+    );
+  }
 }

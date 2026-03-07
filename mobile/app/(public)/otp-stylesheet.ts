@@ -11,7 +11,6 @@ export default function useOTPStyles(isTablet: boolean, textColor: string) {
     digitInput: {
       borderWidth: 2,
       borderRadius: 12,
-      overflow: "hidden",
     },
     resendContainer: {
       flexDirection: "row",

@@ -7,7 +7,6 @@ import {
   View,
   Alert,
   TextInput,
-  Pressable,
   useWindowDimensions,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -26,13 +25,13 @@ import { SignUpParams } from "@/lib/types/auth";
 const OTP_LENGTH = 6;
 
 export default function Otp() {
-  const [otpValue, setOtpValue] = useState("");
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const hiddenInputRef = useRef<TextInput>(null);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
   const authStyles = useAuthStyles();
   const { width } = useWindowDimensions();
   const router = useRouter();
@@ -66,16 +65,13 @@ export default function Otp() {
   const digitSize = Math.max(40, Math.min(maxDigit, calculatedSize));
   const digitFontSize = Math.floor(digitSize * 0.43);
 
-  // digits array derived from the single string value
-  const digits = Array.from(
-    { length: OTP_LENGTH },
-    (_, i) => otpValue[i] ?? "",
-  );
+  // derive the full OTP string for the verify call
+  const otpValue = digits.join("");
 
   const otpStyles = useOTPStyles(isTablet, textColor);
 
   useEffect(() => {
-    const t = setTimeout(() => hiddenInputRef.current?.focus(), 100);
+    const t = setTimeout(() => inputRefs.current[0]?.focus(), 100);
     return () => clearTimeout(t);
   }, []);
 
@@ -105,10 +101,27 @@ export default function Otp() {
     }
   };
 
-  const handleChange = (value: string) => {
-    // keep only digits, max OTP_LENGTH
-    const sanitized = value.replace(/[^0-9]/g, "").slice(0, OTP_LENGTH);
-    setOtpValue(sanitized);
+  const handleDigitChange = (text: string, index: number) => {
+    const sanitized = text.replace(/[^0-9]/g, "");
+    if (!sanitized) return;
+    const digit = sanitized[sanitized.length - 1];
+    const newDigits = [...digits];
+    newDigits[index] = digit;
+    setDigits(newDigits);
+    if (index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
+  };
+
+  const handleKeyPress = (key: string, index: number) => {
+    if (key !== "Backspace") return;
+    const newDigits = [...digits];
+    if (digits[index]) {
+      newDigits[index] = "";
+      setDigits(newDigits);
+    } else if (index > 0) {
+      newDigits[index - 1] = "";
+      setDigits(newDigits);
+      inputRefs.current[index - 1]?.focus();
+    }
   };
 
   const handleVerify = async () => {
@@ -181,78 +194,51 @@ export default function Otp() {
 
           <Card>
             <View style={authStyles.cardContent}>
-              {/* Single hidden input captures all keyboard input */}
-              <TextInput
-                ref={hiddenInputRef}
-                value={otpValue}
-                onChangeText={handleChange}
-                keyboardType="number-pad"
-                maxLength={OTP_LENGTH}
-                editable={!loading}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                style={{
-                  position: "absolute",
-                  width: 0,
-                  height: 0,
-                  opacity: 0,
-                }}
-                caretHidden
-              />
-
-              {/* Tappable digit boxes that focus the hidden input */}
-              <Pressable
-                onPress={() => hiddenInputRef.current?.focus()}
-                style={otpStyles.otpContainer}
-              >
+              <View style={otpStyles.otpContainer}>
                 {digits.map((digit, index) => {
-                  const isActive = isFocused && index === otpValue.length;
+                  const isFocused = focusedIndex === index;
                   return (
-                    <View
+                    <TextInput
                       key={index}
+                      ref={(el) => { inputRefs.current[index] = el; }}
+                      value={digit}
+                      onChangeText={(text) => handleDigitChange(text, index)}
+                      onKeyPress={({ nativeEvent }) =>
+                        handleKeyPress(nativeEvent.key, index)
+                      }
+                      onFocus={() => setFocusedIndex(index)}
+                      onBlur={() => setFocusedIndex(null)}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!loading}
+                      selectTextOnFocus
                       style={[
                         otpStyles.digitInput,
                         {
                           width: digitSize,
                           height: digitSize,
+                          fontSize: digitFontSize,
+                          fontWeight: "600",
+                          color: textColor,
+                          textAlign: "center",
+                          textAlignVertical: "center",
+                          includeFontPadding: false,
+                          padding: 0,
                           borderColor: digit
                             ? tintColor
-                            : isActive
+                            : isFocused
                               ? `${tintColor}80`
                               : `${textColor}30`,
                           backgroundColor: digit
                             ? `${tintColor}10`
                             : "transparent",
                           marginHorizontal: gapSize / 2,
-                          justifyContent: "center",
-                          alignItems: "center",
                         },
                       ]}
-                    >
-                      <ThemedText
-                        style={{
-                          fontSize: digitFontSize,
-                          fontWeight: "600",
-                          color: textColor,
-                          lineHeight: digitFontSize * 1.2,
-                        }}
-                      >
-                        {digit}
-                      </ThemedText>
-                      {isActive && (
-                        <View
-                          style={{
-                            position: "absolute",
-                            width: 2,
-                            height: digitFontSize,
-                            backgroundColor: tintColor,
-                          }}
-                        />
-                      )}
-                    </View>
+                    />
                   );
                 })}
-              </Pressable>
+              </View>
 
               <Button
                 onPress={handleVerify}

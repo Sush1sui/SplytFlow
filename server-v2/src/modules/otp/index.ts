@@ -48,7 +48,7 @@ const otp = new Elysia({ prefix: "/otp" })
       }
 
       set.status = 200;
-      return { otp };
+      return { message: "OTP generated successfully", otp };
     } catch (error) {
       console.error("Error generating OTP:", error);
       set.status = 500;
