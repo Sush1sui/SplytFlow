@@ -1,13 +1,12 @@
+import React from "react";
 import AuthProtect from "@/components/protect-routes/auth-protect";
-import { Stack } from "expo-router";
+import BottomTabNavigator from "@/components/navigation/bottom-tab-navigator";
 
 export default function TabsLayout() {
   return (
     <AuthProtect>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="home" />
-      </Stack>
+      {/* the new bottom tab navigator handles all four main tabs */}
+      <BottomTabNavigator />
     </AuthProtect>
   );
 }

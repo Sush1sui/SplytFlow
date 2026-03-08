@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import * as SecureStore from "expo-secure-store";
 import { AuthContext } from "../context/auth-context";
 import { apiFetcher } from "../utils/api-fetcher";
@@ -131,7 +131,7 @@ export default function AuthProvider({
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const data = await apiFetcher<LoginResponse>(
         `${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`,
@@ -155,58 +155,61 @@ export default function AuthProvider({
       console.error("Login failed:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const signup = async (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string,
-    confirmPassword: string,
-  ) => {
-    const errors = validateSignup(
-      firstName,
-      lastName,
-      email,
-      password,
-      confirmPassword,
-    );
-
-    if (errors.length > 0) {
-      throw new Error(errors.join("\n"));
-    }
-
-    try {
-      const data = await apiFetcher<LoginResponse>(
-        `${API_BASE_URL}${API_ENDPOINTS.AUTH.SIGNUP}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            email,
-            password,
-            confirmPassword,
-          }),
-        },
+  const signup = useCallback(
+    async (
+      firstName: string,
+      lastName: string,
+      email: string,
+      password: string,
+      confirmPassword: string,
+    ) => {
+      const errors = validateSignup(
+        firstName,
+        lastName,
+        email,
+        password,
+        confirmPassword,
       );
 
-      await Promise.all([
-        SecureStore.setItemAsync(TOKEN_KEY!, data.token),
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
-      ]);
+      if (errors.length > 0) {
+        throw new Error(errors.join("\n"));
+      }
 
-      // setUser(data.user);
-      // router.replace("/");
-      return data.user;
-    } catch (error) {
-      console.error("Signup failed:", error);
-      throw error;
-    }
-  };
+      try {
+        const data = await apiFetcher<LoginResponse>(
+          `${API_BASE_URL}${API_ENDPOINTS.AUTH.SIGNUP}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              firstName,
+              lastName,
+              email,
+              password,
+              confirmPassword,
+            }),
+          },
+        );
 
-  const OTP_signup = async (email: string) => {
+        await Promise.all([
+          SecureStore.setItemAsync(TOKEN_KEY!, data.token),
+          SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
+        ]);
+
+        // setUser(data.user);
+        // router.replace("/");
+        return data.user;
+      } catch (error) {
+        console.error("Signup failed:", error);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const OTP_signup = useCallback(async (email: string) => {
     try {
       const success = await requestOTP(email);
       if (!success) {
@@ -218,43 +221,47 @@ export default function AuthProvider({
       console.error("Signup failed:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const verifyOTP = async (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string,
-    confirmPassword: string,
-    code: string,
-  ) => {
-    try {
-      const success = await verify(email, code);
-      if (!success) {
-        throw new Error(
-          "OTP verification failed. Please check the code and try again.",
+  const verifyOTP = useCallback(
+    async (
+      firstName: string,
+      lastName: string,
+      email: string,
+      password: string,
+      confirmPassword: string,
+      code: string,
+    ) => {
+      try {
+        const success = await verify(email, code);
+        if (!success) {
+          throw new Error(
+            "OTP verification failed. Please check the code and try again.",
+          );
+        }
+
+        const user = await signup(
+          firstName,
+          lastName,
+          email,
+          password,
+          confirmPassword,
         );
+
+        if (!user) throw new Error("Signup failed. Please try again.");
+
+        setUser(user);
+        return true;
+      } catch (error) {
+        console.error("OTP verification failed:", error);
+        throw error;
       }
+      // signup is stable (useCallback []) so this dep array is correct
+    },
+    [signup],
+  );
 
-      const user = await signup(
-        firstName,
-        lastName,
-        email,
-        password,
-        confirmPassword,
-      );
-
-      if (!user) throw new Error("Signup failed. Please try again.");
-
-      setUser(user);
-      return true;
-    } catch (error) {
-      console.error("OTP verification failed:", error);
-      throw error;
-    }
-  };
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       const [token, refreshToken] = await Promise.all([
         SecureStore.getItemAsync(TOKEN_KEY!),
@@ -279,13 +286,14 @@ export default function AuthProvider({
       await clearTokens();
       router.replace("/(auth)/sign-in");
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ user, login, OTP_signup, verifyOTP, logout, loading }),
+    [user, login, OTP_signup, verifyOTP, logout, loading],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ user, login, OTP_signup, verifyOTP, logout, loading }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
