@@ -97,6 +97,32 @@ const styles = StyleSheet.create({
   recentSection: {
     marginTop: 18,
   },
+  recentHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  recentHeaderTitle: {
+    marginBottom: 0,
+  },
+  recentClearButton: {
+    minWidth: 56,
+    minHeight: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recentClearText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  recentActionDisabled: {
+    opacity: 0.55,
+  },
   recentEmptyRow: {
     minHeight: 56,
     alignItems: "center",
@@ -132,6 +158,15 @@ const styles = StyleSheet.create({
   recentAmount: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  recentRemoveButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginLeft: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

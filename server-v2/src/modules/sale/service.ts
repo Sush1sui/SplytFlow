@@ -5,18 +5,52 @@ import {
   isTransientDbConnectionError,
   withDbRetry,
 } from "../../utils/db/retry";
+import { CreateOrUpdateOptions } from "./model";
 
-export async function createOrUpdate(userId: string, amount: number) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
+const FLOAT_TOLERANCE = 1e-9;
+
+function normalizeUtcOffsetMinutes(offset?: number) {
+  if (!Number.isFinite(offset)) return 0;
+  return Math.max(
+    -MAX_UTC_OFFSET_MINUTES,
+    Math.min(MAX_UTC_OFFSET_MINUTES, Math.trunc(offset as number)),
+  );
+}
+
+function getDayBucketStartUtc(reference: Date, utcOffsetMinutes: number) {
+  const offsetMs = utcOffsetMinutes * 60 * 1000;
+  const localMs = reference.getTime() + offsetMs;
+  const localDayStartMs = Math.floor(localMs / DAY_MS) * DAY_MS;
+  return new Date(localDayStartMs - offsetMs);
+}
+
+export async function createOrUpdate(
+  userId: string,
+  amount: number,
+  options?: CreateOrUpdateOptions,
+) {
   try {
-    const now = new Date();
+    const referenceTime = options?.recordedAt ?? new Date();
+    const utcOffsetMinutes = normalizeUtcOffsetMinutes(
+      options?.utcOffsetMinutes,
+    );
+
+    // Daily aggregation key: start of user's local day, represented in UTC.
+    const dayBucketCreatedAt = getDayBucketStartUtc(
+      referenceTime,
+      utcOffsetMinutes,
+    );
 
     const [sale] = await db
       .insert(sales)
-      .values({ userId, amount, createdAt: now })
+      .values({ userId, amount, createdAt: dayBucketCreatedAt })
       .onConflictDoUpdate({
         target: [sales.userId, sales.createdAt],
         set: {
           amount: sql`${sales.amount} + ${amount}`,
+          updatedAt: new Date(),
         },
       })
       .returning();
@@ -29,19 +63,107 @@ export async function createOrUpdate(userId: string, amount: number) {
   }
 }
 
-export async function getSaleToday(userId: string) {
+export async function deductFromDailySale(
+  userId: string,
+  amountToDeduct: number,
+  options?: CreateOrUpdateOptions,
+) {
+  try {
+    if (!Number.isFinite(amountToDeduct) || amountToDeduct <= 0) {
+      throw new Error("amountToDeduct must be a positive number");
+    }
+
+    const referenceTime = options?.recordedAt ?? new Date();
+    const utcOffsetMinutes = normalizeUtcOffsetMinutes(
+      options?.utcOffsetMinutes,
+    );
+    const dayBucketCreatedAt = getDayBucketStartUtc(
+      referenceTime,
+      utcOffsetMinutes,
+    );
+
+    const guardedThreshold = amountToDeduct - FLOAT_TOLERANCE;
+
+    // Atomic mutation: this update succeeds only if the bucket exists and has
+    // enough amount, preventing concurrent over-deductions.
+    const [updatedSale] = await withDbRetry(
+      () =>
+        db
+          .update(sales)
+          .set({
+            amount: sql`${sales.amount} - ${amountToDeduct}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(sales.userId, userId),
+              eq(sales.createdAt, dayBucketCreatedAt),
+              gte(sales.amount, guardedThreshold),
+            ),
+          )
+          .returning(),
+      { retries: 1, delayMs: 400 },
+    );
+
+    if (!updatedSale) {
+      const [existingSale] = await withDbRetry(
+        () =>
+          db
+            .select({
+              id: sales.id,
+            })
+            .from(sales)
+            .where(
+              and(
+                eq(sales.userId, userId),
+                eq(sales.createdAt, dayBucketCreatedAt),
+              ),
+            )
+            .limit(1),
+        { retries: 1, delayMs: 400 },
+      );
+
+      if (!existingSale) {
+        throw new Error("Sale day bucket not found");
+      }
+
+      throw new Error("Deduction exceeds current daily sales");
+    }
+
+    if (Math.abs(Number(updatedSale.amount)) <= FLOAT_TOLERANCE) {
+      await withDbRetry(
+        () =>
+          db
+            .delete(sales)
+            .where(and(eq(sales.id, updatedSale.id), eq(sales.userId, userId)))
+            .returning(),
+        { retries: 1, delayMs: 400 },
+      );
+
+      return { sale: null, deleted: true };
+    }
+
+    return { sale: updatedSale, deleted: false };
+  } catch (error) {
+    if (isTransientDbConnectionError(error)) {
+      console.error(
+        "Error deducting from daily sale: database connection timeout",
+      );
+      throw new Error("Database connection timeout");
+    }
+
+    console.error("Error deducting from daily sale:", error);
+    throw error;
+  }
+}
+
+export async function getSaleToday(userId: string, utcOffsetMinutes?: number) {
   try {
     const now = new Date();
-    const startOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-    const endOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-    );
+    const normalizedOffset = normalizeUtcOffsetMinutes(utcOffsetMinutes);
+
+    const startOfDay = getDayBucketStartUtc(now, normalizedOffset);
+    const endOfDay = new Date(startOfDay.getTime() + DAY_MS);
 
     // Single query: fetch today's sale and the user's total split % in one go
     const splitsTotal = db

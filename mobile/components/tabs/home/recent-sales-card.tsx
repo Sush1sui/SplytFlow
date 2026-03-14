@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, Alert, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/card";
@@ -9,24 +9,125 @@ import useTabsStyles from "@/app/(tabs)/tabs-stylesheet";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
 import { formatAmount, formatSaleTime } from "./formatters";
-import type { TodaySale } from "./types";
+import type { RecentSaleLog } from "./types";
 
 type RecentSalesCardProps = {
-  sales: TodaySale[];
+  sales: RecentSaleLog[];
   loading: boolean;
+  clearingLogs: boolean;
+  removingLogId: string | null;
+  onClearLogs: () => Promise<void>;
+  onRemoveLog: (saleId: string) => Promise<void>;
 };
 
-function RecentSalesCardComponent({ sales, loading }: RecentSalesCardProps) {
+function RecentSalesCardComponent({
+  sales,
+  loading,
+  clearingLogs,
+  removingLogId,
+  onClearLogs,
+  onRemoveLog,
+}: RecentSalesCardProps) {
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
   const homeStyles = useHomeStyles();
   const tabsStyles = useTabsStyles();
+  const isAnyRemoveInFlight = removingLogId !== null;
+
+  const handleClearLogsPress = () => {
+    Alert.alert(
+      "Clear recent logs?",
+      "This only clears the local recent logs list.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await onClearLogs();
+              } catch (error) {
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to clear recent logs.";
+                Alert.alert("Clear Failed", message);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRemoveLogPress = (sale: RecentSaleLog) => {
+    Alert.alert(
+      "Remove this sale?",
+      `This will deduct ${formatAmount(sale.amount)} from your sales.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await onRemoveLog(sale.id);
+              } catch (error) {
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to remove sale log.";
+                Alert.alert("Remove Failed", message);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={homeStyles.recentSection}>
-      <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
-        RECENT SALES
-      </ThemedText>
+      <View style={homeStyles.recentHeaderRow}>
+        <ThemedText
+          style={[
+            tabsStyles.sectionTitle,
+            homeStyles.recentHeaderTitle,
+            { color: iconColor },
+          ]}
+        >
+          RECENT SALES
+        </ThemedText>
+
+        {sales.length > 0 && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={clearingLogs}
+            onPress={handleClearLogsPress}
+            style={[
+              homeStyles.recentClearButton,
+              {
+                borderColor: `${iconColor}55`,
+                backgroundColor: `${iconColor}14`,
+              },
+              clearingLogs && homeStyles.recentActionDisabled,
+            ]}
+          >
+            {clearingLogs ? (
+              <ActivityIndicator size="small" color={iconColor} />
+            ) : (
+              <ThemedText
+                style={[homeStyles.recentClearText, { color: iconColor }]}
+              >
+                Clear
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Card>
         {loading ? (
           <View style={homeStyles.recentEmptyRow}>
@@ -45,33 +146,67 @@ function RecentSalesCardComponent({ sales, loading }: RecentSalesCardProps) {
             </ThemedText>
           </View>
         ) : (
-          sales.map((sale, index) => (
-            <View key={sale.id}>
-              <View style={homeStyles.recentRow}>
-                <View
-                  style={[
-                    tabsStyles.centerContent,
-                    homeStyles.recentIcon,
-                    { backgroundColor: `${tint}16` },
-                  ]}
-                >
-                  <Ionicons name="time-outline" size={16} color={tint} />
-                </View>
-                <View style={homeStyles.recentInfo}>
-                  <ThemedText style={homeStyles.recentLabel}>Sale</ThemedText>
-                  <ThemedText
-                    style={[homeStyles.recentTime, { color: iconColor }]}
+          sales.map((sale, index) => {
+            const isRemoving = removingLogId === sale.id;
+
+            return (
+              <View key={sale.id}>
+                <View style={homeStyles.recentRow}>
+                  <View
+                    style={[
+                      tabsStyles.centerContent,
+                      homeStyles.recentIcon,
+                      { backgroundColor: `${tint}16` },
+                    ]}
                   >
-                    {formatSaleTime(sale.createdAt)}
+                    <Ionicons name="time-outline" size={16} color={tint} />
+                  </View>
+                  <View style={homeStyles.recentInfo}>
+                    <ThemedText style={homeStyles.recentLabel}>Sale</ThemedText>
+                    <ThemedText
+                      style={[homeStyles.recentTime, { color: iconColor }]}
+                    >
+                      {formatSaleTime(sale.createdAt)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText
+                    style={[homeStyles.recentAmount, { color: tint }]}
+                  >
+                    {formatAmount(Number(sale.amount) || 0)}
                   </ThemedText>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={isAnyRemoveInFlight || clearingLogs}
+                    onPress={() => {
+                      handleRemoveLogPress(sale);
+                    }}
+                    style={[
+                      homeStyles.recentRemoveButton,
+                      {
+                        borderColor: `${iconColor}44`,
+                        backgroundColor: `${iconColor}14`,
+                      },
+                      (isAnyRemoveInFlight || clearingLogs) &&
+                        homeStyles.recentActionDisabled,
+                    ]}
+                  >
+                    {isRemoving ? (
+                      <ActivityIndicator size="small" color={iconColor} />
+                    ) : (
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={iconColor}
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
-                <ThemedText style={[homeStyles.recentAmount, { color: tint }]}>
-                  {formatAmount(Number(sale.amount) || 0)}
-                </ThemedText>
+                {index < sales.length - 1 && (
+                  <View style={tabsStyles.divider} />
+                )}
               </View>
-              {index < sales.length - 1 && <View style={tabsStyles.divider} />}
-            </View>
-          ))
+            );
+          })
         )}
       </Card>
     </View>

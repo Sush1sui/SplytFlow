@@ -1,13 +1,50 @@
 import Elysia from "elysia";
 import {
   createOrUpdate,
+  deductFromDailySale,
   deleteSaleById,
   deleteSalesById,
   getSalesByTimeRange,
   getSaleToday,
   getTotalSalesByTimeRange,
 } from "./service";
-import { CreateOrUpdateBody, DeleteBody } from "./model";
+import { AdjustSaleBody, CreateOrUpdateBody, DeleteBody } from "./model";
+
+const ADJUSTMENT_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
+type AdjustResult = Awaited<ReturnType<typeof deductFromDailySale>>;
+
+const completedAdjustments = new Map<
+  string,
+  { result: AdjustResult; expiresAt: number }
+>();
+const inFlightAdjustments = new Map<string, Promise<AdjustResult>>();
+
+function trimRequestId(value: string | undefined) {
+  return (value || "").trim();
+}
+
+function getAdjustmentIdempotencyKey(userId: string, requestId: string) {
+  return `${userId}:${requestId}`;
+}
+
+function getCachedAdjustmentResult(key: string) {
+  const cached = completedAdjustments.get(key);
+  if (!cached) return null;
+
+  if (cached.expiresAt <= Date.now()) {
+    completedAdjustments.delete(key);
+    return null;
+  }
+
+  return cached.result;
+}
+
+function cacheAdjustmentResult(key: string, result: AdjustResult) {
+  completedAdjustments.set(key, {
+    result,
+    expiresAt: Date.now() + ADJUSTMENT_IDEMPOTENCY_TTL_MS,
+  });
+}
 
 const sales = new Elysia({ prefix: "/sales" })
   /**
@@ -20,6 +57,12 @@ const sales = new Elysia({ prefix: "/sales" })
     try {
       const { id } = params;
       const { startDate, endDate } = query;
+      const parsedOffset =
+        typeof query.utcOffsetMinutes === "string"
+          ? Number(query.utcOffsetMinutes)
+          : typeof query.utcOffsetMinutes === "number"
+            ? query.utcOffsetMinutes
+            : undefined;
 
       if (!id) {
         set.status = 400;
@@ -44,7 +87,7 @@ const sales = new Elysia({ prefix: "/sales" })
         set.status = 200;
         return result;
       } else {
-        const result = await getSaleToday(id);
+        const result = await getSaleToday(id, parsedOffset);
         if (result.sales.length === 0) {
           set.status = 404;
           return { error: "No sales found for this user today" };
@@ -108,14 +151,38 @@ const sales = new Elysia({ prefix: "/sales" })
    */
   .post("/", async ({ body, set }) => {
     try {
-      const { userId, amount } = body as CreateOrUpdateBody;
+      const { userId, amount, timeZone, utcOffsetMinutes, recordedAt } =
+        body as CreateOrUpdateBody;
+
+      const parsedAmount = Number(amount);
+      const parsedOffset =
+        typeof utcOffsetMinutes === "string"
+          ? Number(utcOffsetMinutes)
+          : typeof utcOffsetMinutes === "number"
+            ? utcOffsetMinutes
+            : undefined;
+      const parsedRecordedAt = recordedAt ? new Date(recordedAt) : undefined;
 
       if (!userId || amount === undefined) {
         set.status = 400;
         return { error: "userId and amount are required" };
       }
 
-      const newSale = await createOrUpdate(userId, amount);
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        set.status = 400;
+        return { error: "amount must be a positive number" };
+      }
+
+      if (parsedRecordedAt && Number.isNaN(parsedRecordedAt.getTime())) {
+        set.status = 400;
+        return { error: "recordedAt must be a valid ISO date string" };
+      }
+
+      const newSale = await createOrUpdate(userId, parsedAmount, {
+        timeZone,
+        utcOffsetMinutes: parsedOffset,
+        recordedAt: parsedRecordedAt,
+      });
       if (!newSale) {
         set.status = 500;
         return { error: "Failed to create or update sale" };
@@ -128,6 +195,96 @@ const sales = new Elysia({ prefix: "/sales" })
         error instanceof Error ? error.message : "An unknown error occurred";
       set.status = 500;
       return { error: message };
+    }
+  })
+  .patch("/adjust", async ({ body, set }) => {
+    let ownedInFlightKey: string | null = null;
+
+    try {
+      const { userId, amount, requestId, timeZone, utcOffsetMinutes, recordedAt } =
+        body as AdjustSaleBody;
+
+      const parsedAmount = Number(amount);
+      const parsedOffset =
+        typeof utcOffsetMinutes === "string"
+          ? Number(utcOffsetMinutes)
+          : typeof utcOffsetMinutes === "number"
+            ? utcOffsetMinutes
+            : undefined;
+      const parsedRecordedAt = recordedAt ? new Date(recordedAt) : undefined;
+
+      if (!userId || amount === undefined) {
+        set.status = 400;
+        return { error: "userId and amount are required" };
+      }
+
+      const normalizedRequestId = trimRequestId(requestId);
+      if (!normalizedRequestId) {
+        set.status = 400;
+        return { error: "requestId is required" };
+      }
+
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        set.status = 400;
+        return { error: "amount must be a positive number" };
+      }
+
+      if (parsedRecordedAt && Number.isNaN(parsedRecordedAt.getTime())) {
+        set.status = 400;
+        return { error: "recordedAt must be a valid ISO date string" };
+      }
+
+      const idempotencyKey = getAdjustmentIdempotencyKey(
+        userId,
+        normalizedRequestId,
+      );
+
+      const cachedResult = getCachedAdjustmentResult(idempotencyKey);
+      if (cachedResult) {
+        set.status = 200;
+        return { ...cachedResult, idempotentReplay: true };
+      }
+
+      const existingInFlight = inFlightAdjustments.get(idempotencyKey);
+      if (existingInFlight) {
+        const replayed = await existingInFlight;
+        set.status = 200;
+        return { ...replayed, idempotentReplay: true };
+      }
+
+      const requestPromise = deductFromDailySale(userId, parsedAmount, {
+        timeZone,
+        utcOffsetMinutes: parsedOffset,
+        recordedAt: parsedRecordedAt,
+      });
+      inFlightAdjustments.set(idempotencyKey, requestPromise);
+      ownedInFlightKey = idempotencyKey;
+
+      const result = await requestPromise;
+      cacheAdjustmentResult(idempotencyKey, result);
+
+      set.status = 200;
+      return { ...result, idempotentReplay: false };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
+
+      if (message === "Sale day bucket not found") {
+        set.status = 404;
+        return { error: message };
+      }
+
+      if (message === "Deduction exceeds current daily sales") {
+        set.status = 400;
+        return { error: message };
+      }
+
+      set.status = 500;
+      return { error: message };
+    } finally {
+      if (ownedInFlightKey) {
+        inFlightAdjustments.delete(ownedInFlightKey);
+      }
     }
   })
   .delete("/:id", async ({ params, body, set }) => {

@@ -454,3 +454,73 @@ describe("GET /sales/:id/total – HTTP", () => {
     expect(status).toBe(400);
   });
 });
+
+describe("PATCH /sales/adjust – HTTP", () => {
+  it("returns 400 when requestId is missing", async () => {
+    const { status } = await req("PATCH", "/sales/adjust", {
+      userId: TEST_USER_ID,
+      amount: 10,
+    });
+    expect(status).toBe(400);
+  });
+
+  it("deducts once and replays by idempotency key", async () => {
+    const recordedAt = "2099-01-10T10:00:00.000Z";
+    const utcOffsetMinutes = 0;
+    const requestId = `adjust_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const create = await req("POST", "/sales", {
+      userId: TEST_USER_ID,
+      amount: 120,
+      recordedAt,
+      utcOffsetMinutes,
+    });
+    expect(create.status).toBe(201);
+
+    const first = await req("PATCH", "/sales/adjust", {
+      userId: TEST_USER_ID,
+      amount: 20,
+      requestId,
+      recordedAt,
+      utcOffsetMinutes,
+    });
+    expect(first.status).toBe(200);
+    expect((first.body as any).idempotentReplay).toBe(false);
+    expect((first.body as any).sale?.amount).toBeCloseTo(100, 5);
+
+    const second = await req("PATCH", "/sales/adjust", {
+      userId: TEST_USER_ID,
+      amount: 20,
+      requestId,
+      recordedAt,
+      utcOffsetMinutes,
+    });
+    expect(second.status).toBe(200);
+    expect((second.body as any).idempotentReplay).toBe(true);
+    expect((second.body as any).sale?.amount).toBeCloseTo(100, 5);
+  });
+
+  it("returns 400 when deduction exceeds available bucket amount", async () => {
+    const recordedAt = "2099-01-11T10:00:00.000Z";
+    const utcOffsetMinutes = 0;
+
+    const create = await req("POST", "/sales", {
+      userId: TEST_USER_ID,
+      amount: 30,
+      recordedAt,
+      utcOffsetMinutes,
+    });
+    expect(create.status).toBe(201);
+
+    const adjust = await req("PATCH", "/sales/adjust", {
+      userId: TEST_USER_ID,
+      amount: 50,
+      requestId: `adjust_over_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      recordedAt,
+      utcOffsetMinutes,
+    });
+
+    expect(adjust.status).toBe(400);
+    expect((adjust.body as any).error).toMatch(/exceeds/i);
+  });
+});

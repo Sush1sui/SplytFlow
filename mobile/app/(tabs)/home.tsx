@@ -23,7 +23,11 @@ export default function Home() {
     todayNetSales,
     recentSales,
     todaySalesLoading,
+    removingSaleId,
+    clearingRecentLogs,
     addQuickSale,
+    clearRecentSales,
+    removeRecentSale,
   } = useHomeSales(user?.id);
 
   const insets = useSafeAreaInsets();
@@ -104,7 +108,14 @@ export default function Home() {
           <QuickAddSalesCard onSubmit={addQuickSale} />
         </Animated.View>
 
-        <RecentSalesCard sales={recentSales} loading={todaySalesLoading} />
+        <RecentSalesCard
+          sales={recentSales}
+          loading={todaySalesLoading}
+          clearingLogs={clearingRecentLogs}
+          removingLogId={removingSaleId}
+          onClearLogs={clearRecentSales}
+          onRemoveLog={removeRecentSale}
+        />
       </ScrollView>
     </ThemedView>
   );

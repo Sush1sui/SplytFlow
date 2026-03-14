@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   },
   SALES: {
     CREATE: "/sales",
+    ADJUST: "/sales/adjust",
     BY_USER: (userId: string) => `/sales/${userId}`,
   },
 } as const;
