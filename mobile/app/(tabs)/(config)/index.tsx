@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { ScrollView, View, StyleSheet, Animated } from "react-native";
+import { ScrollView, View, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -7,6 +7,8 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Card } from "@/components/ui/card";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import useTabsStyles from "../tabs-stylesheet";
+import useConfigStyles from "./config-stylesheet";
 
 // ─── Module-level: defined outside parent so React never remounts it ──────────
 function ConfigRow({
@@ -16,6 +18,8 @@ function ConfigRow({
   right,
   tint,
   iconColor,
+  tabsStyles,
+  configStyles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -23,19 +27,27 @@ function ConfigRow({
   right?: React.ReactNode;
   tint: string;
   iconColor: string;
+  tabsStyles: ReturnType<typeof useTabsStyles>;
+  configStyles: ReturnType<typeof useConfigStyles>;
 }) {
   return (
     <>
-      <View style={styles.configRow}>
-        <View style={[styles.configIconWrap, { backgroundColor: `${tint}18` }]}>
+      <View style={tabsStyles.rowItem}>
+        <View
+          style={[
+            tabsStyles.centerContent,
+            configStyles.configIconWrap,
+            { backgroundColor: `${tint}18` },
+          ]}
+        >
           <Ionicons name={icon} size={18} color={tint} />
         </View>
-        <ThemedText style={styles.configLabel}>{label}</ThemedText>
+        <ThemedText style={configStyles.configLabel}>{label}</ThemedText>
         {right ?? (
           <Ionicons name="chevron-forward" size={16} color={iconColor} />
         )}
       </View>
-      {!last && <View style={styles.divider} />}
+      {!last && <View style={tabsStyles.divider} />}
     </>
   );
 }
@@ -45,6 +57,8 @@ export default function ConfigIndex() {
   const insets = useSafeAreaInsets();
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
+  const tabsStyles = useTabsStyles();
+  const configStyles = useConfigStyles();
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const section1Anim = useRef(new Animated.Value(0)).current;
@@ -87,28 +101,55 @@ export default function ConfigIndex() {
 
   // thin helper so call sites stay readable
   const row = (
-    props: Omit<Parameters<typeof ConfigRow>[0], "tint" | "iconColor">,
-  ) => <ConfigRow {...props} tint={tint} iconColor={iconColor} />;
+    props: Omit<
+      Parameters<typeof ConfigRow>[0],
+      "tint" | "iconColor" | "tabsStyles" | "configStyles"
+    >,
+  ) => (
+    <ConfigRow
+      {...props}
+      tint={tint}
+      iconColor={iconColor}
+      tabsStyles={tabsStyles}
+      configStyles={configStyles}
+    />
+  );
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={tabsStyles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]}
+        contentContainerStyle={[
+          tabsStyles.scroll,
+          configStyles.scroll,
+          { paddingTop: insets.top + 24 },
+        ]}
       >
         {/* Header */}
-        <Animated.View style={[styles.header, animStyle(headerAnim)]}>
-          <View style={[styles.logoCircle, { backgroundColor: `${tint}18` }]}>
+        <Animated.View
+          style={[
+            tabsStyles.headerRow,
+            configStyles.header,
+            animStyle(headerAnim),
+          ]}
+        >
+          <View
+            style={[
+              tabsStyles.centerContent,
+              configStyles.logoCircle,
+              { backgroundColor: `${tint}18` },
+            ]}
+          >
             <Ionicons name="construct-outline" size={28} color={tint} />
           </View>
-          <ThemedText type="title" style={styles.title}>
+          <ThemedText type="title" style={tabsStyles.title}>
             Config
           </ThemedText>
         </Animated.View>
 
         {/* Business settings */}
         <Animated.View style={animStyle(section1Anim)}>
-          <ThemedText style={[styles.sectionTitle, { color: iconColor }]}>
+          <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
             BUSINESS
           </ThemedText>
           <Card>
@@ -120,7 +161,7 @@ export default function ConfigIndex() {
 
         {/* Sale settings */}
         <Animated.View style={animStyle(section2Anim)}>
-          <ThemedText style={[styles.sectionTitle, { color: iconColor }]}>
+          <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
             SALES
           </ThemedText>
           <Card>
@@ -133,43 +174,3 @@ export default function ConfigIndex() {
     </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { paddingHorizontal: 24, paddingBottom: 32, gap: 20 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 8,
-  },
-  logoCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { fontSize: 26, fontWeight: "700" },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  configRow: { flexDirection: "row", alignItems: "center", paddingVertical: 4 },
-  configIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  configLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(150,150,150,0.12)",
-    marginVertical: 10,
-  },
-});

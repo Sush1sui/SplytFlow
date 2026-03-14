@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { otps } from "../../db/schema";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { validateEmail, validatePurpose } from "../../utils/auth";
 import {
   capitalizeWords,
@@ -8,6 +8,10 @@ import {
 } from "../../utils";
 import { emailTemplate, sendEmail } from "../../utils/email";
 import { randomInt } from "crypto"; // use secure RNG for OTPs
+import {
+  isTransientDbConnectionError,
+  withDbRetry,
+} from "../../utils/db/retry";
 
 export async function create(email: string, purpose = "signup") {
   try {
@@ -111,18 +115,17 @@ export async function runCleanup(minuteInterval = 5) {
 
 async function cleanupExpiredOtps() {
   try {
-    // console.log("Running OTP cleanup job...");
-
-    // Use raw SQL to bypass Prisma's UTF-8 decoding, which throws on
-    // any corrupted rows that may exist in the table.
-    await db.execute(sql`DELETE FROM "OTP" WHERE "expiresAt" < NOW()`);
-
-    // console.log("OTP cleanup completed successfully");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    const code = (error as { code?: string }).code;
-    console.error(
-      `Error during OTP cleanup: ${msg}${code ? ` (code: ${code})` : ""}`,
+    await withDbRetry(
+      () => db.delete(otps).where(lt(otps.expiresAt, new Date())),
+      { retries: 1, delayMs: 400 },
     );
+  } catch (error) {
+    if (isTransientDbConnectionError(error)) {
+      console.error("Error during OTP cleanup: database connection timeout");
+      return;
+    }
+
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`Error during OTP cleanup: ${msg}`);
   }
 }

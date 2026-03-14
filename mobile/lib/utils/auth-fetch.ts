@@ -17,6 +17,7 @@ if (!TOKEN_KEY) {
  * Get the stored session token
  */
 export async function getToken(): Promise<string | null> {
+  if (!TOKEN_KEY) throw new Error("TOKEN_KEY is not defined");
   return await SecureStore.getItemAsync(TOKEN_KEY);
 }
 

@@ -28,13 +28,13 @@ const sales = new Elysia({ prefix: "/sales" })
 
       // branch on presence of range parameters
       if (startDate && endDate) {
-        const sales = await getSalesByTimeRange(
+        const result = await getSalesByTimeRange(
           id,
           new Date(startDate),
           new Date(endDate),
         );
 
-        if (!sales || sales.length === 0) {
+        if (result.sales.length === 0) {
           set.status = 404;
           return {
             error: "No sales found for this user in the specified time range",
@@ -42,16 +42,16 @@ const sales = new Elysia({ prefix: "/sales" })
         }
 
         set.status = 200;
-        return sales;
+        return result;
       } else {
-        const today = await getSaleToday(id);
-        if (!today) {
+        const result = await getSaleToday(id);
+        if (result.sales.length === 0) {
           set.status = 404;
           return { error: "No sales found for this user today" };
         }
 
         set.status = 200;
-        return today;
+        return result;
       }
     } catch (error) {
       const message =

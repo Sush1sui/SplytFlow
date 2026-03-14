@@ -1,5 +1,6 @@
 import Elysia from "elysia";
 import * as splitService from "./service";
+import { SplitLimitExceededError } from "./service";
 import { DeleteSplitBody, SplitCreateOrUpdateBody } from "./model";
 
 const split = new Elysia({ prefix: "/split" })
@@ -31,6 +32,7 @@ const split = new Elysia({ prefix: "/split" })
     }
   })
   /**
+   * THIS IS AN UPSERT ENDPOINT - IT WILL CREATE A NEW SPLIT IF IT DOESN'T EXIST OR UPDATE THE VALUE IF IT DOES
    * POST /split
    * Body: { userId, name, value }
    * Response: 201 { split: Split } | 200 { split: Split } | 400 { error: string } | 500 { error: string }
@@ -59,6 +61,10 @@ const split = new Elysia({ prefix: "/split" })
       set.status = created ? 201 : 200;
       return split;
     } catch (error) {
+      if (error instanceof SplitLimitExceededError) {
+        set.status = 400;
+        return { error: error.message };
+      }
       const message =
         error instanceof Error ? error.message : "An unknown error occurred";
       set.status = 500;

@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from "react";
 import {
   ScrollView,
   View,
-  StyleSheet,
   Animated,
   TouchableOpacity,
   Alert,
@@ -16,6 +15,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useAuthContext } from "@/lib/context/auth-context";
+import useTabsStyles from "../tabs-stylesheet";
+import useSettingsStyles from "./settings-stylesheet";
 
 // ─── Module-level: defined outside parent so React never remounts it ─────────
 function SettingsRow({
@@ -24,25 +25,33 @@ function SettingsRow({
   last = false,
   tint,
   iconColor,
+  tabsStyles,
+  settingsStyles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   last?: boolean;
   tint: string;
   iconColor: string;
+  tabsStyles: ReturnType<typeof useTabsStyles>;
+  settingsStyles: ReturnType<typeof useSettingsStyles>;
 }) {
   return (
     <>
-      <TouchableOpacity style={styles.settingsRow} activeOpacity={0.6}>
+      <TouchableOpacity style={tabsStyles.rowItem} activeOpacity={0.6}>
         <View
-          style={[styles.settingsIconWrap, { backgroundColor: `${tint}18` }]}
+          style={[
+            tabsStyles.centerContent,
+            settingsStyles.settingsIconWrap,
+            { backgroundColor: `${tint}18` },
+          ]}
         >
           <Ionicons name={icon} size={18} color={tint} />
         </View>
-        <ThemedText style={styles.settingsLabel}>{label}</ThemedText>
+        <ThemedText style={settingsStyles.settingsLabel}>{label}</ThemedText>
         <Ionicons name="chevron-forward" size={16} color={iconColor} />
       </TouchableOpacity>
-      {!last && <View style={styles.divider} />}
+      {!last && <View style={tabsStyles.divider} />}
     </>
   );
 }
@@ -53,6 +62,8 @@ export default function SettingsIndex() {
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
   const { logout } = useAuthContext();
+  const tabsStyles = useTabsStyles();
+  const settingsStyles = useSettingsStyles();
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const profileAnim = useRef(new Animated.Value(0)).current;
@@ -102,8 +113,19 @@ export default function SettingsIndex() {
 
   // thin helper so call sites stay readable
   const row = (
-    props: Omit<Parameters<typeof SettingsRow>[0], "tint" | "iconColor">,
-  ) => <SettingsRow {...props} tint={tint} iconColor={iconColor} />;
+    props: Omit<
+      Parameters<typeof SettingsRow>[0],
+      "tint" | "iconColor" | "tabsStyles" | "settingsStyles"
+    >,
+  ) => (
+    <SettingsRow
+      {...props}
+      tint={tint}
+      iconColor={iconColor}
+      tabsStyles={tabsStyles}
+      settingsStyles={settingsStyles}
+    />
+  );
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -113,30 +135,56 @@ export default function SettingsIndex() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={tabsStyles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]}
+        contentContainerStyle={[
+          tabsStyles.scroll,
+          settingsStyles.scroll,
+          { paddingTop: insets.top + 24 },
+        ]}
       >
         {/* Header */}
-        <Animated.View style={[styles.header, animStyle(headerAnim)]}>
-          <View style={[styles.logoCircle, { backgroundColor: `${tint}18` }]}>
+        <Animated.View
+          style={[
+            tabsStyles.headerRow,
+            settingsStyles.header,
+            animStyle(headerAnim),
+          ]}
+        >
+          <View
+            style={[
+              tabsStyles.centerContent,
+              settingsStyles.logoCircle,
+              { backgroundColor: `${tint}18` },
+            ]}
+          >
             <Ionicons name="settings-outline" size={28} color={tint} />
           </View>
-          <ThemedText type="title" style={styles.title}>
+          <ThemedText type="title" style={tabsStyles.title}>
             Settings
           </ThemedText>
         </Animated.View>
 
         {/* Profile card */}
         <Animated.View style={animStyle(profileAnim)}>
-          <Card style={styles.profileCard}>
-            <View style={[styles.avatar, { backgroundColor: `${tint}22` }]}>
+          <Card style={settingsStyles.profileCard}>
+            <View
+              style={[
+                tabsStyles.centerContent,
+                settingsStyles.avatar,
+                { backgroundColor: `${tint}22` },
+              ]}
+            >
               <Ionicons name="person" size={28} color={tint} />
             </View>
-            <View style={styles.profileInfo}>
-              <ThemedText style={styles.profileName}>Your Name</ThemedText>
-              <ThemedText style={[styles.profileEmail, { color: iconColor }]}>
+            <View style={settingsStyles.profileInfo}>
+              <ThemedText style={settingsStyles.profileName}>
+                Your Name
+              </ThemedText>
+              <ThemedText
+                style={[settingsStyles.profileEmail, { color: iconColor }]}
+              >
                 your@email.com
               </ThemedText>
             </View>
@@ -146,7 +194,7 @@ export default function SettingsIndex() {
 
         {/* Account */}
         <Animated.View style={animStyle(section1Anim)}>
-          <ThemedText style={[styles.sectionTitle, { color: iconColor }]}>
+          <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
             ACCOUNT
           </ThemedText>
           <Card>
@@ -162,7 +210,7 @@ export default function SettingsIndex() {
 
         {/* App */}
         <Animated.View style={animStyle(section2Anim)}>
-          <ThemedText style={[styles.sectionTitle, { color: iconColor }]}>
+          <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
             APP
           </ThemedText>
           <Card>
@@ -174,7 +222,7 @@ export default function SettingsIndex() {
               last: true,
             })}
           </Card>
-          <View style={styles.logoutWrap}>
+          <View style={settingsStyles.logoutWrap}>
             <Button
               variant="outline"
               onPress={handleLogout}
@@ -188,60 +236,3 @@ export default function SettingsIndex() {
     </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 8,
-  },
-  logoCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { fontSize: 26, fontWeight: "700" },
-  profileCard: { flexDirection: "row", alignItems: "center" },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 16, fontWeight: "600" },
-  profileEmail: { fontSize: 13, marginTop: 2 },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  settingsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  settingsIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  settingsLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(150,150,150,0.12)",
-    marginVertical: 10,
-  },
-  logoutWrap: { marginTop: 8 },
-});

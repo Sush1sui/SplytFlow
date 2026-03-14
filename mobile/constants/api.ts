@@ -31,4 +31,8 @@ export const API_ENDPOINTS = {
     OTP: "/otp",
     OTP_VERIFY: "/otp/verify",
   },
+  SALES: {
+    CREATE: "/sales",
+    BY_USER: (userId: string) => `/sales/${userId}`,
+  },
 } as const;

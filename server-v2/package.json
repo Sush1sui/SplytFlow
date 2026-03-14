@@ -2,7 +2,7 @@
   "name": "server-v2",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:sale-split": "bun test src/tests/sale-split.test.ts --timeout 30000",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

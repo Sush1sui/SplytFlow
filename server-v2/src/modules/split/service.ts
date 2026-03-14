@@ -1,54 +1,45 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { splits } from "../../db/schema";
 
-export async function create(userId: string, name: string, value: number) {
-  try {
-    const [split] = await db
-      .insert(splits)
-      .values({ userId, name, value })
-      .returning();
-
-    if (!split) throw new Error("Failed to create split");
-    return split;
-  } catch (error) {
-    console.error("Error creating split:", error);
-    throw error;
+export class SplitLimitExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SplitLimitExceededError";
   }
 }
 
-export async function update(userId: string, name: string, value: number) {
-  try {
-    const [split] = await db
-      .update(splits)
-      .set({ value })
-      .where(and(eq(splits.userId, userId), eq(splits.name, name)))
-      .returning();
-    if (!split) throw new Error("Split not found");
-    return split;
-  } catch (error) {
-    console.error("Error updating split:", error);
-    throw error;
-  }
-}
+const MAX_TOTAL_SPLIT = 100;
 
 export async function upsert(userId: string, name: string, value: number) {
-  try {
-    const [split] = await db
+  return db.transaction(async (tx) => {
+    // Sum all existing splits for this user, excluding the one being upserted
+    // so that an update doesn't double-count the current value
+    const [{ otherTotal }] = await tx
+      .select({
+        otherTotal: sql<number>`COALESCE(SUM(${splits.value}), 0)`,
+      })
+      .from(splits)
+      .where(and(eq(splits.userId, userId), ne(splits.name, name)));
+
+    if (otherTotal + value > MAX_TOTAL_SPLIT) {
+      throw new SplitLimitExceededError(
+        `Total split percentage would exceed ${MAX_TOTAL_SPLIT}% (other splits: ${otherTotal}%, requested: ${value}%)`,
+      );
+    }
+
+    const [split] = await tx
       .insert(splits)
       .values({ userId, name, value })
       .onConflictDoUpdate({
         target: [splits.userId, splits.name],
-        set: { value },
+        set: { name, value },
       })
       .returning();
 
     if (!split) throw new Error("Failed to upsert split");
     return split;
-  } catch (error) {
-    console.error("Error upserting split:", error);
-    throw error;
-  }
+  });
 }
 
 export async function getSplitsByUserId(userId: string) {

@@ -10,6 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import useBottomTabStyles from "./bottom-tab-styles";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
+const TAB_ORDER = ["home", "sales", "config", "settings"] as const;
+
 // mapping route names to icon placeholders
 const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: "home-outline",
@@ -17,6 +19,11 @@ const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
   config: "construct-outline",
   settings: "settings-outline",
 };
+
+const normalizeRouteName = (name: string) => name.replace(/[()]/g, "");
+
+const isMainTabRoute = (name: string) =>
+  TAB_ORDER.includes(normalizeRouteName(name) as (typeof TAB_ORDER)[number]);
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { styles, iconSize } = useBottomTabStyles();
@@ -31,11 +38,15 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const sortedRoutes = useMemo(
     () =>
       state.routes
-        .filter((r) => r.name !== "index")
+        .filter((r) => r.name !== "index" && isMainTabRoute(r.name))
         .sort((a, b) => {
-          const clean = (n: string) => n.replace(/[()]/g, "");
-          const order = ["home", "sales", "config", "settings"];
-          return order.indexOf(clean(a.name)) - order.indexOf(clean(b.name));
+          const aIndex = TAB_ORDER.indexOf(
+            normalizeRouteName(a.name) as (typeof TAB_ORDER)[number],
+          );
+          const bIndex = TAB_ORDER.indexOf(
+            normalizeRouteName(b.name) as (typeof TAB_ORDER)[number],
+          );
+          return aIndex - bIndex;
         }),
     [state.routes],
   );
@@ -56,7 +67,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         };
 
         // strip parentheses used for grouping in route names
-        const cleanName = route.name.replace(/[()]/g, "");
+        const cleanName = normalizeRouteName(route.name);
 
         let labelRaw =
           options.tabBarLabel !== undefined
@@ -124,6 +135,12 @@ export default function BottomTabNavigator() {
     <Tabs
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <CustomTabBar {...props} />}
-    />
+    >
+      <Tabs.Screen name="home" options={{ title: "home" }} />
+      <Tabs.Screen name="(sales)" options={{ title: "sales" }} />
+      <Tabs.Screen name="(config)" options={{ title: "config" }} />
+      <Tabs.Screen name="(settings)" options={{ title: "settings" }} />
+      <Tabs.Screen name="index" options={{ href: null }} />
+    </Tabs>
   );
 }
