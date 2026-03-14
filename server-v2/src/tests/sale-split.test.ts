@@ -524,3 +524,78 @@ describe("PATCH /sales/adjust – HTTP", () => {
     expect((adjust.body as any).error).toMatch(/exceeds/i);
   });
 });
+
+describe("PATCH /sales/set-day – HTTP", () => {
+  it("sets amount on a missing day bucket", async () => {
+    const recordedAt = "2099-02-01T10:00:00.000Z";
+
+    const { status, body } = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: 45,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+
+    expect(status).toBe(200);
+    expect((body as any).deleted).toBe(false);
+    expect((body as any).sale?.amount).toBeCloseTo(45, 5);
+  });
+
+  it("sets exact amount on an existing day bucket", async () => {
+    const recordedAt = "2099-02-02T10:00:00.000Z";
+
+    const first = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: 120,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+    expect(first.status).toBe(200);
+
+    const second = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: 35,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+
+    expect(second.status).toBe(200);
+    expect((second.body as any).deleted).toBe(false);
+    expect((second.body as any).sale?.amount).toBeCloseTo(35, 5);
+  });
+
+  it("deletes a day bucket when amount is zero", async () => {
+    const recordedAt = "2099-02-03T10:00:00.000Z";
+
+    const create = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: 80,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+    expect(create.status).toBe(200);
+
+    const remove = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: 0,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+
+    expect(remove.status).toBe(200);
+    expect((remove.body as any).deleted).toBe(true);
+    expect((remove.body as any).sale).toBeNull();
+  });
+
+  it("returns 400 for negative amount", async () => {
+    const { status, body } = await req("PATCH", "/sales/set-day", {
+      userId: TEST_USER_ID,
+      amount: -10,
+      recordedAt: "2099-02-04T10:00:00.000Z",
+      utcOffsetMinutes: 0,
+    });
+
+    expect(status).toBe(400);
+    expect((body as any).error).toMatch(/non-negative/i);
+  });
+});

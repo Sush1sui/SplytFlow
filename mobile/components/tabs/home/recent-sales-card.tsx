@@ -11,6 +11,8 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { formatAmount, formatSaleTime } from "./formatters";
 import type { RecentSaleLog } from "./types";
 
+const HOME_RECENT_SALES_DISPLAY_LIMIT = 5;
+
 type RecentSalesCardProps = {
   sales: RecentSaleLog[];
   loading: boolean;
@@ -33,6 +35,7 @@ function RecentSalesCardComponent({
   const homeStyles = useHomeStyles();
   const tabsStyles = useTabsStyles();
   const isAnyRemoveInFlight = removingLogId !== null;
+  const visibleSales = sales.slice(0, HOME_RECENT_SALES_DISPLAY_LIMIT);
 
   const handleClearLogsPress = () => {
     Alert.alert(
@@ -137,16 +140,16 @@ function RecentSalesCardComponent({
               Loading recent sales...
             </ThemedText>
           </View>
-        ) : sales.length === 0 ? (
+        ) : visibleSales.length === 0 ? (
           <View style={homeStyles.recentEmptyRow}>
             <ThemedText
               style={[homeStyles.recentEmptyText, { color: iconColor }]}
             >
-              No sales yet for today
+              No recent sales in the last 7 days
             </ThemedText>
           </View>
         ) : (
-          sales.map((sale, index) => {
+          visibleSales.map((sale, index) => {
             const isRemoving = removingLogId === sale.id;
 
             return (
@@ -201,7 +204,7 @@ function RecentSalesCardComponent({
                     )}
                   </TouchableOpacity>
                 </View>
-                {index < sales.length - 1 && (
+                {index < visibleSales.length - 1 && (
                   <View style={tabsStyles.divider} />
                 )}
               </View>

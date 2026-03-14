@@ -28,11 +28,17 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 28,
   },
+  statsRowStack: {
+    flexDirection: "column",
+  },
   statCard: {
     flex: 1,
     padding: 14,
     alignItems: "center",
     gap: 4,
+  },
+  statCardStack: {
+    width: "100%",
   },
   statValue: {
     fontSize: 20,

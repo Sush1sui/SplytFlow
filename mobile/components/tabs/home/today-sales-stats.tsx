@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/card";
@@ -23,8 +23,10 @@ function TodaySalesStatsComponent({
 }: TodaySalesStatsProps) {
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
+  const { width } = useWindowDimensions();
   const homeStyles = useHomeStyles();
   const tabsStyles = useTabsStyles();
+  const isNarrow = width < 360;
 
   const stats = useMemo(
     () => [
@@ -47,9 +49,12 @@ function TodaySalesStatsComponent({
       <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
         TODAY'S SALES
       </ThemedText>
-      <View style={homeStyles.statsRow}>
+      <View style={[homeStyles.statsRow, isNarrow && homeStyles.statsRowStack]}>
         {stats.map((stat) => (
-          <Card key={stat.label} style={homeStyles.statCard}>
+          <Card
+            key={stat.label}
+            style={[homeStyles.statCard, isNarrow && homeStyles.statCardStack]}
+          >
             <Ionicons name={stat.icon} size={20} color={tint} />
             <ThemedText style={homeStyles.statValue}>{stat.value}</ThemedText>
             <ThemedText style={[homeStyles.statLabel, { color: iconColor }]}>

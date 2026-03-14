@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import * as SecureStore from "expo-secure-store";
 
 import { API_ENDPOINTS } from "@/constants/api";
+import { markSalesAnalyticsDirty } from "@/lib/state/sales-analytics-cache";
+import {
+  readRecentSalesLogs,
+  writeRecentSalesLogs,
+} from "@/lib/state/recent-sales-logs";
 import { authenticatedFetch } from "@/lib/utils/auth-fetch";
 
 import type {
@@ -11,32 +15,43 @@ import type {
   TodaySalesResponse,
 } from "./types";
 
-const RECENT_SALES_LIMIT = 5;
-const RECENT_SALES_KEY_PREFIX = "recent_sales";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
+const FLOAT_TOLERANCE = 1e-6;
 
-const getRecentSalesKey = (userId: string) =>
-  `${RECENT_SALES_KEY_PREFIX}_${userId}`;
+const normalizeUtcOffsetMinutes = (offset?: number) => {
+  if (!Number.isFinite(offset)) return 0;
+  return Math.max(
+    -MAX_UTC_OFFSET_MINUTES,
+    Math.min(MAX_UTC_OFFSET_MINUTES, Math.trunc(offset as number)),
+  );
+};
 
-const parseRecentSales = (raw: string | null): RecentSaleLog[] => {
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .filter((item): item is RecentSaleLog => {
-        const maybe = item as Partial<RecentSaleLog>;
-        return (
-          typeof maybe?.id === "string" &&
-          typeof maybe?.amount === "number" &&
-          typeof maybe?.createdAt === "string"
-        );
-      })
-      .slice(0, RECENT_SALES_LIMIT);
-  } catch {
-    return [];
+const getDayBucketRangeForLog = (sale: RecentSaleLog) => {
+  const referenceTime = new Date(sale.createdAt);
+  if (Number.isNaN(referenceTime.getTime())) {
+    throw new Error("This log has an invalid timestamp and cannot be removed.");
   }
+
+  const utcOffsetMinutes = normalizeUtcOffsetMinutes(sale.utcOffsetMinutes);
+  const offsetMs = utcOffsetMinutes * 60 * 1000;
+  const localMs = referenceTime.getTime() + offsetMs;
+  const localDayStartMs = Math.floor(localMs / DAY_MS) * DAY_MS;
+  const start = new Date(localDayStartMs - offsetMs);
+  const end = new Date(start.getTime() + DAY_MS);
+
+  return { start, end };
+};
+
+const mapRemoveRecentSaleError = (message: string) => {
+  if (
+    message.includes("Deduction exceeds current daily sales") ||
+    message.includes("Sale day bucket not found")
+  ) {
+    return "This sale can't be removed because this day's total was already changed. Please update today's amount in Manage Sales or clear recent activity for this day.";
+  }
+
+  return message;
 };
 
 export function useHomeSales(userId?: string) {
@@ -51,10 +66,7 @@ export function useHomeSales(userId?: string) {
   const persistRecentSales = useCallback(
     async (items: RecentSaleLog[]) => {
       if (!userId) return;
-      await SecureStore.setItemAsync(
-        getRecentSalesKey(userId),
-        JSON.stringify(items.slice(0, RECENT_SALES_LIMIT)),
-      );
+      await writeRecentSalesLogs(userId, items);
     },
     [userId],
   );
@@ -66,8 +78,7 @@ export function useHomeSales(userId?: string) {
     }
 
     try {
-      const raw = await SecureStore.getItemAsync(getRecentSalesKey(userId));
-      setRecentSales(parseRecentSales(raw));
+      setRecentSales(await readRecentSalesLogs(userId));
     } catch {
       setRecentSales([]);
     }
@@ -156,6 +167,8 @@ export function useHomeSales(userId?: string) {
         }),
       });
 
+      markSalesAnalyticsDirty(userId);
+
       const entry: RecentSaleLog = {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         amount,
@@ -165,7 +178,7 @@ export function useHomeSales(userId?: string) {
       };
 
       setRecentSales((prev) => {
-        const next = [entry, ...prev].slice(0, RECENT_SALES_LIMIT);
+        const next = [entry, ...prev];
         void persistRecentSales(next);
         return next;
       });
@@ -217,21 +230,58 @@ export function useHomeSales(userId?: string) {
         inFlightRemoveRef.current.add(saleId);
         setRemovingSaleId(saleId);
 
-        await authenticatedFetch<AdjustSaleResponse>(
-          API_ENDPOINTS.SALES.ADJUST,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId,
-              amount,
-              requestId: `remove_recent_log_${saleToRemove.id}`,
-              timeZone: saleToRemove.timeZone,
-              utcOffsetMinutes: saleToRemove.utcOffsetMinutes,
-              recordedAt: saleToRemove.createdAt,
-            }),
-          },
-        );
+        const { start, end } = getDayBucketRangeForLog(saleToRemove);
+        const query =
+          `?startDate=${encodeURIComponent(start.toISOString())}` +
+          `&endDate=${encodeURIComponent(end.toISOString())}`;
+
+        let dayTotal = 0;
+        try {
+          const dayResponse = await authenticatedFetch<TodaySalesResponse>(
+            `${API_ENDPOINTS.SALES.BY_USER(userId)}${query}`,
+            { method: "GET" },
+          );
+          dayTotal = (
+            Array.isArray(dayResponse.sales) ? dayResponse.sales : []
+          ).reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (message.includes("404")) {
+            dayTotal = 0;
+          } else {
+            throw error;
+          }
+        }
+
+        if (amount > dayTotal + FLOAT_TOLERANCE) {
+          throw new Error(
+            "This sale can't be removed because this day's total was already changed. Please update today's amount in Manage Sales or clear recent activity for this day.",
+          );
+        }
+
+        try {
+          await authenticatedFetch<AdjustSaleResponse>(
+            API_ENDPOINTS.SALES.ADJUST,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId,
+                amount,
+                requestId: `remove_recent_log_${saleToRemove.id}`,
+                timeZone: saleToRemove.timeZone,
+                utcOffsetMinutes: saleToRemove.utcOffsetMinutes,
+                recordedAt: saleToRemove.createdAt,
+              }),
+            },
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Failed to remove sale.";
+          throw new Error(mapRemoveRecentSaleError(message));
+        }
+
+        markSalesAnalyticsDirty(userId);
 
         setRecentSales((prev) => {
           const next = prev.filter((sale) => sale.id !== saleId);
@@ -245,7 +295,13 @@ export function useHomeSales(userId?: string) {
         setRemovingSaleId((current) => (current === saleId ? null : current));
       }
     },
-    [clearingRecentLogs, loadTodaySales, persistRecentSales, recentSales, userId],
+    [
+      clearingRecentLogs,
+      loadTodaySales,
+      persistRecentSales,
+      recentSales,
+      userId,
+    ],
   );
 
   return {
@@ -255,6 +311,7 @@ export function useHomeSales(userId?: string) {
     todaySalesLoading,
     removingSaleId,
     clearingRecentLogs,
+    loadRecentSales,
     loadTodaySales,
     addQuickSale,
     clearRecentSales,

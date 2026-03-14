@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { Animated, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ThemedView } from "@/components/themed-view";
 import { useAuthContext } from "@/lib/context/auth-context";
@@ -25,6 +26,8 @@ export default function Home() {
     todaySalesLoading,
     removingSaleId,
     clearingRecentLogs,
+    loadRecentSales,
+    loadTodaySales,
     addQuickSale,
     clearRecentSales,
     removeRecentSale,
@@ -60,6 +63,13 @@ export default function Home() {
       }),
     ]).start();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadTodaySales();
+      void loadRecentSales();
+    }, [loadRecentSales, loadTodaySales]),
+  );
 
   const animStyle = (anim: Animated.Value) => ({
     opacity: anim,

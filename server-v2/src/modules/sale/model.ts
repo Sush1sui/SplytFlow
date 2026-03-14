@@ -20,7 +20,53 @@ export type AdjustSaleBody = {
   recordedAt?: string;
 };
 
-export type DeleteBody = { salesIds?: string[]; date?: Date };
+export type SetDayBody = {
+  userId: string;
+  // Exact amount to store for the computed local-day bucket.
+  // Use 0 to delete the day's bucket.
+  amount: number;
+  timeZone?: string;
+  utcOffsetMinutes?: number | string;
+  recordedAt?: string;
+};
+
+export type DeleteBody = { salesIds?: string[]; date?: Date | string };
+
+export type RouteSet = {
+  status?: number | string;
+};
+
+export type BodyRouteContext = {
+  body: unknown;
+  set: RouteSet;
+};
+
+export type ParamsQueryRouteContext = {
+  params: Record<string, string>;
+  query: Record<string, string | undefined>;
+  set: RouteSet;
+};
+
+export type ParamsBodyRouteContext = {
+  params: Record<string, string>;
+  body: unknown;
+  set: RouteSet;
+};
+
+export type SaleRouteParams = {
+  id?: string;
+};
+
+export type GetSalesQuery = {
+  startDate?: string;
+  endDate?: string;
+  utcOffsetMinutes?: string | number;
+};
+
+export type GetTotalSalesQuery = {
+  startDate?: string;
+  endDate?: string;
+};
 
 export type CreateOrUpdateOptions = {
   timeZone?: string;

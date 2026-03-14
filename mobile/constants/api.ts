@@ -15,9 +15,11 @@ import Constants from "expo-constants";
 // during runtime. For local development you can keep a .env file and load it
 // into expo.extra via app.config.js/ts using dotenv.
 const LOCAL_IP = (Constants.expoConfig?.extra as any)?.LOCAL_IP || "localhost"; // or "192.168.x.x" for physical devices
+const LOCAL_PORT =
+  Number((Constants.expoConfig?.extra as any)?.LOCAL_PORT) || 3000;
 
 export const API_BASE_URL = __DEV__
-  ? `http://${LOCAL_IP}:3000`
+  ? `http://${LOCAL_IP}:${LOCAL_PORT}`
   : "https://your-production-api.com";
 
 export const API_ENDPOINTS = {
@@ -34,6 +36,10 @@ export const API_ENDPOINTS = {
   SALES: {
     CREATE: "/sales",
     ADJUST: "/sales/adjust",
+    SET_DAY: "/sales/set-day",
     BY_USER: (userId: string) => `/sales/${userId}`,
+  },
+  SPLIT: {
+    BY_USER: (userId: string) => `/split/${userId}`,
   },
 } as const;
