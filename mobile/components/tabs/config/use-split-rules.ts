@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { API_ENDPOINTS } from "@/constants/api";
-import { authenticatedFetch } from "@/lib/utils/auth-fetch";
 import { ApiError } from "@/lib/utils/api-fetcher";
 import { markSalesAnalyticsDirty } from "@/lib/state/sales-analytics-cache";
 import type { SplitFeedback, SplitRule } from "./types";
@@ -10,10 +8,14 @@ import {
   formatPct,
   parseApiMessage,
 } from "./split-rules-utils";
+import { validateSaveRuleInput } from "./split-rules-validation";
 import {
-  validateSaveRuleInput,
-  validateSplitRuleFields,
-} from "./split-rules-validation";
+  deleteAllSplitRules,
+  deleteSplitRule,
+  fetchSplitRules,
+  upsertSplitRule,
+} from "./split-rules-requests";
+import { useSplitRuleForm } from "./use-split-rule-form";
 
 export function useSplitRules(userId?: string) {
   const [rules, setRules] = useState<SplitRule[]>([]);
@@ -23,13 +25,7 @@ export function useSplitRules(userId?: string) {
   const [deletingName, setDeletingName] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
 
-  const [editingName, setEditingName] = useState<string | null>(null);
-  const [nameInput, setNameInput] = useState("");
-  const [valueInput, setValueInput] = useState("");
   const [feedback, setFeedback] = useState<SplitFeedback>(null);
-  const [nameTouched, setNameTouched] = useState(false);
-  const [valueTouched, setValueTouched] = useState(false);
-  const [saveAttempted, setSaveAttempted] = useState(false);
 
   const sortedRules = useMemo(
     () =>
@@ -46,21 +42,18 @@ export function useSplitRules(userId?: string) {
 
   const retainedPct = Math.max(0, MAX_TOTAL_SPLIT - totalSplitPct);
 
-  const fieldErrors = useMemo(
-    () =>
-      validateSplitRuleFields({
-        editingName,
-        nameInput,
-        valueInput,
-        rules,
-        totalSplitPct,
-      }),
-    [editingName, nameInput, valueInput, rules, totalSplitPct],
-  );
-
-  const showInlineErrors = saveAttempted || nameTouched || valueTouched;
-  const nameError = showInlineErrors ? fieldErrors.name : undefined;
-  const valueError = showInlineErrors ? fieldErrors.value : undefined;
+  const {
+    editingName,
+    nameInput,
+    valueInput,
+    nameError,
+    valueError,
+    setSaveAttempted,
+    resetForm,
+    startEditRule,
+    onNameInputChange,
+    onValueInputChange,
+  } = useSplitRuleForm({ rules, totalSplitPct });
 
   const loadRules = useCallback(
     async (isRefresh = false) => {
@@ -74,11 +67,8 @@ export function useSplitRules(userId?: string) {
       if (!isRefresh) setLoadingRules(true);
 
       try {
-        const response = await authenticatedFetch<SplitRule[]>(
-          API_ENDPOINTS.SPLIT.BY_USER(userId),
-          { method: "GET" },
-        );
-        setRules(Array.isArray(response) ? response : []);
+        const response = await fetchSplitRules(userId);
+        setRules(response);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {
           setRules([]);
@@ -105,34 +95,13 @@ export function useSplitRules(userId?: string) {
     void loadRules(true);
   }, [loadRules]);
 
-  const resetForm = useCallback(() => {
-    setEditingName(null);
-    setNameInput("");
-    setValueInput("");
-    setNameTouched(false);
-    setValueTouched(false);
-    setSaveAttempted(false);
-  }, []);
-
-  const startEditRule = useCallback((rule: SplitRule) => {
-    setEditingName(rule.name);
-    setNameInput(rule.name);
-    setValueInput(String(rule.value));
-    setNameTouched(false);
-    setValueTouched(false);
-    setSaveAttempted(false);
-    setFeedback(null);
-  }, []);
-
-  const onNameInputChange = useCallback((value: string) => {
-    setNameTouched(true);
-    setNameInput(value);
-  }, []);
-
-  const onValueInputChange = useCallback((value: string) => {
-    setValueTouched(true);
-    setValueInput(value);
-  }, []);
+  const startEditRuleWithFeedbackReset = useCallback(
+    (rule: SplitRule) => {
+      startEditRule(rule);
+      setFeedback(null);
+    },
+    [startEditRule],
+  );
 
   const saveRule = useCallback(async () => {
     if (!userId) {
@@ -162,15 +131,7 @@ export function useSplitRules(userId?: string) {
       setSaving(true);
       const targetName = editingName ?? validation.name;
 
-      await authenticatedFetch<SplitRule>(API_ENDPOINTS.SPLIT.UPSERT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          name: targetName,
-          value: validation.value,
-        }),
-      });
+      await upsertSplitRule(userId, targetName, validation.value);
 
       markSalesAnalyticsDirty(userId);
       await loadRules(true);
@@ -196,6 +157,7 @@ export function useSplitRules(userId?: string) {
     nameInput,
     resetForm,
     rules,
+    setSaveAttempted,
     totalSplitPct,
     userId,
     valueInput,
@@ -207,11 +169,7 @@ export function useSplitRules(userId?: string) {
 
       try {
         setDeletingName(name);
-        await authenticatedFetch(API_ENDPOINTS.SPLIT.DELETE, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, name }),
-        });
+        await deleteSplitRule(userId, name);
 
         markSalesAnalyticsDirty(userId);
         await loadRules(true);
@@ -238,9 +196,7 @@ export function useSplitRules(userId?: string) {
 
     try {
       setDeletingAll(true);
-      await authenticatedFetch(API_ENDPOINTS.SPLIT.DELETE_ALL_BY_USER(userId), {
-        method: "DELETE",
-      });
+      await deleteAllSplitRules(userId);
 
       markSalesAnalyticsDirty(userId);
       await loadRules(true);
@@ -274,7 +230,7 @@ export function useSplitRules(userId?: string) {
     setNameInput: onNameInputChange,
     setValueInput: onValueInputChange,
     refreshRules,
-    startEditRule,
+    startEditRule: startEditRuleWithFeedbackReset,
     resetForm,
     saveRule,
     deleteRule,
