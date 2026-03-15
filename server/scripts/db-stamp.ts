@@ -5,7 +5,7 @@
 import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { Client } from "pg";
+import { Client } from "../node_modules/@types/pg";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) throw new Error("DATABASE_URL is not set");

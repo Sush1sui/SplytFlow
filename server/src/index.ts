@@ -13,7 +13,7 @@ import sale from "./modules/sale/index";
 export { db };
 
 const app = new Elysia()
-  .get("/", () => "Hello Elysia")
+  .get("/", () => "Splytflow API is running!")
   .use(auth)
   .use(otp)
   .use(split)
