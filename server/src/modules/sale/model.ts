@@ -34,6 +34,8 @@ export type DeleteBody = { salesIds?: string[]; date?: Date | string };
 
 export type RouteSet = {
   status?: number | string;
+  headers?: unknown;
+  [key: string]: unknown;
 };
 
 export type BodyRouteContext = {
@@ -66,6 +68,7 @@ export type GetSalesQuery = {
 export type GetTotalSalesQuery = {
   startDate?: string;
   endDate?: string;
+  utcOffsetMinutes?: string | number;
 };
 
 export type CreateOrUpdateOptions = {

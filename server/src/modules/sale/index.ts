@@ -1,6 +1,10 @@
 import Elysia from "elysia";
 import { handleAdjustSale } from "./routes/adjust-handler";
-import { handleGetSales, handleGetTotalSales } from "./routes/read-handlers";
+import {
+  handleExportSalesCsv,
+  handleGetSales,
+  handleGetTotalSales,
+} from "./routes/read-handlers";
 import {
   handleCreateSale,
   handleDeleteSale,
@@ -8,6 +12,7 @@ import {
 } from "./routes/write-handlers";
 
 const sales = new Elysia({ prefix: "/sales" })
+  .get("/:id/export/csv", handleExportSalesCsv)
   .get("/:id", handleGetSales)
   .get("/:id/total", handleGetTotalSales)
   .post("/", handleCreateSale)

@@ -949,6 +949,37 @@ describe("GET /split/history/:userId/corrections – HTTP", () => {
   });
 });
 
+describe("GET /split/history/:userId/timeline – HTTP", () => {
+  it("returns full split timeline including live and correction rows", async () => {
+    await resetSplitStateForHistoryTests();
+    await splitService.upsert(TEST_USER_ID, "Rent", 10);
+
+    await req("POST", "/split/history/correct", {
+      userId: TEST_USER_ID,
+      startAt: "2099-10-05T00:00:00.000Z",
+      endAt: "2099-10-06T00:00:00.000Z",
+      breakdown: [{ name: "Rent", value: 5 }],
+      reason: "timeline endpoint test",
+    });
+
+    const { status, body } = await req(
+      "GET",
+      `/split/history/${TEST_USER_ID}/timeline`,
+    );
+
+    expect(status).toBe(200);
+    expect(Array.isArray((body as any).timeline)).toBe(true);
+    expect((body as any).timeline.length).toBeGreaterThan(0);
+
+    const sources = (body as any).timeline
+      .map((row: any) => row.source)
+      .filter((source: any) => typeof source === "string");
+
+    expect(sources).toContain("live");
+    expect(sources).toContain("correction_start");
+  });
+});
+
 // ── Sales endpoints ──────────────────────────────────────────────────────────
 
 describe("POST /sales – HTTP", () => {
@@ -1015,6 +1046,76 @@ describe("GET /sales/:id/total – HTTP", () => {
   it("returns 400 when dates are missing", async () => {
     const { status } = await req("GET", `/sales/${TEST_USER_ID}/total`);
     expect(status).toBe(400);
+  });
+});
+
+describe("GET /sales/:id/export/csv – HTTP", () => {
+  it("returns 400 when dates are missing", async () => {
+    const { status, body } = await req(
+      "GET",
+      `/sales/${TEST_USER_ID}/export/csv`,
+    );
+
+    expect(status).toBe(400);
+    expect((body as any).error).toMatch(/startDate and endDate/i);
+  });
+
+  it("returns CSV text with user-friendly columns and no user id column", async () => {
+    const recordedAt = "2099-02-12T10:00:00.000Z";
+
+    const create = await req("POST", "/sales", {
+      userId: TEST_USER_ID,
+      amount: 100,
+      recordedAt,
+      utcOffsetMinutes: 0,
+    });
+    expect(create.status).toBe(201);
+
+    const startDate = "2099-02-10T00:00:00.000Z";
+    const endDate = "2099-02-14T00:00:00.000Z";
+    const { status, body } = await req(
+      "GET",
+      `/sales/${TEST_USER_ID}/export/csv?startDate=${startDate}&endDate=${endDate}`,
+    );
+
+    expect(status).toBe(200);
+    expect(typeof body).toBe("string");
+
+    const csv = String(body);
+    expect(csv).toContain('"Date"');
+    expect(csv).toContain('"Sales Amount"');
+    expect(csv).toContain('"Money You Keep"');
+    expect(csv).toContain('"Money Deducted"');
+    expect(csv).toContain('"Total Split Percentage"');
+    expect(csv).toContain('"Percentage You Keep"');
+    expect(csv).toContain('"Split Details"');
+    expect(csv).toContain('"Split Active From"');
+
+    expect(csv).not.toContain("user id");
+    expect(csv).not.toContain("user_id");
+  });
+
+  it("uses utcOffsetMinutes to align CSV day labels with local timezone", async () => {
+    const create = await req("POST", "/sales", {
+      userId: TEST_USER_ID,
+      amount: 50,
+      recordedAt: "2099-02-12T18:30:00.000Z",
+      utcOffsetMinutes: 480,
+    });
+    expect(create.status).toBe(201);
+
+    const startDate = "2099-02-12T16:00:00.000Z";
+    const endDate = "2099-02-13T16:00:00.000Z";
+    const { status, body } = await req(
+      "GET",
+      `/sales/${TEST_USER_ID}/export/csv?startDate=${startDate}&endDate=${endDate}&utcOffsetMinutes=480`,
+    );
+
+    expect(status).toBe(200);
+    expect(typeof body).toBe("string");
+
+    const csv = String(body);
+    expect(csv).toContain('"2099-02-13",50.00');
   });
 });
 

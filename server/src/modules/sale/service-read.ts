@@ -61,6 +61,14 @@ function toDateOnlyLabel(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
+function toDateOnlyLabelWithOffset(
+  value: Date,
+  utcOffsetMinutes: number,
+): string {
+  const shifted = new Date(value.getTime() + utcOffsetMinutes * 60 * 1000);
+  return toDateOnlyLabel(shifted);
+}
+
 function toCsvSafeValue(raw: string): string {
   const escaped = raw.replace(/"/g, '""');
   return `"${escaped}"`;
@@ -102,12 +110,6 @@ function buildSalesCsv(rows: SalesCsvExportRow[]): string {
   }
 
   return lines.join("\n");
-}
-
-function startOfUtcDay(value: Date): Date {
-  return new Date(
-    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
-  );
 }
 
 function addUtcDays(value: Date, days: number): Date {
@@ -426,8 +428,11 @@ export async function getSalesCsvByTimeRange(
   userId: string,
   startDate: Date,
   endDate: Date,
+  utcOffsetMinutes?: number,
 ) {
   try {
+    const normalizedOffset = normalizeUtcOffsetMinutes(utcOffsetMinutes);
+
     const rows = await withDbRetry(
       () =>
         db
@@ -451,19 +456,24 @@ export async function getSalesCsvByTimeRange(
     const dayAmountMap = new Map<string, number>();
 
     for (const row of rows) {
-      const key = toDateOnlyLabel(startOfUtcDay(row.createdAt));
-      dayAmountMap.set(key, Number(row.amount) || 0);
+      const key = toDateOnlyLabelWithOffset(row.createdAt, normalizedOffset);
+      dayAmountMap.set(
+        key,
+        (dayAmountMap.get(key) ?? 0) + (Number(row.amount) || 0),
+      );
     }
 
     const csvRows: SalesCsvExportRow[] = [];
-    let dayCursor = startOfUtcDay(startDate);
-    const dayEnd = startOfUtcDay(endDate);
+    let dayCursor = getDayBucketStartUtc(startDate, normalizedOffset);
+    const dayEnd = getDayBucketStartUtc(endDate, normalizedOffset);
 
     while (dayCursor.getTime() < dayEnd.getTime()) {
-      const dayKey = toDateOnlyLabel(dayCursor);
+      const dayKey = toDateOnlyLabelWithOffset(dayCursor, normalizedOffset);
       const salesAmount = dayAmountMap.get(dayKey) ?? 0;
+      const dayEndExclusive = addUtcDays(dayCursor, 1);
+      const snapshotAt = new Date(dayEndExclusive.getTime() - 1);
 
-      const snapshot = getEffectiveSplitSnapshotAt(historyRows, dayCursor);
+      const snapshot = getEffectiveSplitSnapshotAt(historyRows, snapshotAt);
       const totalSplitPercentage = snapshot.totalSplitPct ?? 0;
       const percentageYouKeep = Math.max(0, 100 - totalSplitPercentage);
       const moneyDeducted = salesAmount * (totalSplitPercentage / 100);
@@ -478,7 +488,7 @@ export async function getSalesCsvByTimeRange(
         percentageYouKeep,
         splitDetails: toSplitDetailsLabel(snapshot.breakdown),
         splitActiveFrom: snapshot.effectiveFrom
-          ? toDateOnlyLabel(startOfUtcDay(snapshot.effectiveFrom))
+          ? toDateOnlyLabelWithOffset(snapshot.effectiveFrom, normalizedOffset)
           : "No split history yet",
       });
 
