@@ -215,6 +215,11 @@ export default function ManageSalesScreen() {
   }, [selectedDate, user?.id]);
 
   const onSaveDay = useCallback(async () => {
+    if (!amountInput.trim()) {
+      Alert.alert("Invalid amount", "Enter an amount before saving.");
+      return;
+    }
+
     const parsed = Number(amountInput);
 
     if (!Number.isFinite(parsed) || parsed < 0) {

@@ -14,28 +14,39 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { sales as salesTable, splits as splitsTable } from "../db/schema";
+import {
+  sales as salesTable,
+  splits as splitsTable,
+  users as usersTable,
+} from "../db/schema";
 import * as splitService from "../modules/split/service";
 import { SplitLimitExceededError } from "../modules/split/service";
 import * as saleService from "../modules/sale/service";
 
 // ─── Test Fixtures ───────────────────────────────────────────────────────────
 
-// We need a real user in the DB because of FK constraints.
-// Pull the first existing user or skip gracefully.
+// Create a dedicated temporary test user so tests never mutate real users.
 let TEST_USER_ID: string;
+let CREATED_TEST_USER_ID: string | null = null;
 
 beforeAll(async () => {
-  const user = await db.query.users?.findFirst();
-  if (!user) {
-    console.warn(
-      "[test] No users found in DB – skipping tests that require a userId. " +
-        "Seed at least one user to run the full suite.",
-    );
-    TEST_USER_ID = "00000000-0000-0000-0000-000000000000"; // sentinel
-  } else {
-    TEST_USER_ID = user.id;
+  const unique = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const [createdUser] = await db
+    .insert(usersTable)
+    .values({
+      firstName: "Test",
+      lastName: "Runner",
+      email: `sale-suite-${unique}@example.test`,
+      password: "not-used-in-tests",
+    })
+    .returning({ id: usersTable.id });
+
+  if (!createdUser?.id) {
+    throw new Error("Failed to create isolated test user");
   }
+
+  TEST_USER_ID = createdUser.id;
+  CREATED_TEST_USER_ID = createdUser.id;
 
   // Clean up any leftover data from previous runs for this user
   await db.delete(salesTable).where(eq(salesTable.userId, TEST_USER_ID));
@@ -45,6 +56,10 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(salesTable).where(eq(salesTable.userId, TEST_USER_ID));
   await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
+
+  if (CREATED_TEST_USER_ID) {
+    await db.delete(usersTable).where(eq(usersTable.id, CREATED_TEST_USER_ID));
+  }
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
