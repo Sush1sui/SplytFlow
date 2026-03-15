@@ -510,6 +510,8 @@ export function useSalesAnalytics(userId?: string) {
     preset,
     setPreset,
     rangeLabel: range.label,
+    rangeStartDate: range.startDate,
+    rangeEndDate: range.endDate,
     salesRows,
     historyRows,
     trendPoints,

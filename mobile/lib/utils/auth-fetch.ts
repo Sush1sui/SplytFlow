@@ -137,3 +137,48 @@ export async function authenticatedFetch<T = any>(
     });
   }
 }
+
+async function fetchTextWithToken(
+  endpoint: string,
+  token: string,
+  options?: RequestInit,
+) {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: setAuthHeaders(token, options),
+  });
+
+  const bodyText = await response.text();
+
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, bodyText);
+  }
+
+  return bodyText;
+}
+
+export async function authenticatedFetchText(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<string> {
+  const token = await getToken();
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  try {
+    return await fetchTextWithToken(endpoint, token, options);
+  } catch (error) {
+    if (!isAuthStatusError(error)) {
+      throw error;
+    }
+
+    const refreshedToken = await refreshAccessToken();
+    if (!refreshedToken) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+
+    return fetchTextWithToken(endpoint, refreshedToken, options);
+  }
+}

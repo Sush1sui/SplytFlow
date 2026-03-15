@@ -40,6 +40,11 @@ const styles = StyleSheet.create({
     gap: 6,
     alignSelf: "flex-start",
   },
+  headerActionGroup: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
   headerManageText: {
     fontSize: 12,
     fontWeight: "700",
@@ -47,6 +52,9 @@ const styles = StyleSheet.create({
   },
   presetSection: {
     marginBottom: 16,
+  },
+  exportButton: {
+    marginBottom: 14,
   },
   presetRow: {
     flexDirection: "row",

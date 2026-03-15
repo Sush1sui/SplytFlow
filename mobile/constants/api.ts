@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
     ADJUST: "/sales/adjust",
     SET_DAY: "/sales/set-day",
     BY_USER: (userId: string) => `/sales/${userId}`,
+    EXPORT_CSV_BY_USER: (userId: string) => `/sales/${userId}/export/csv`,
   },
   SPLIT: {
     UPSERT: "/split",
@@ -47,5 +48,7 @@ export const API_ENDPOINTS = {
     HISTORY_CORRECT: "/split/history/correct",
     CORRECTION_HISTORY_BY_USER: (userId: string, limit = 25) =>
       `/split/history/${userId}/corrections?limit=${limit}`,
+    HISTORY_TIMELINE_BY_USER: (userId: string) =>
+      `/split/history/${userId}/timeline`,
   },
 } as const;
