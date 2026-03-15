@@ -11,6 +11,7 @@ import { colorWithOpacity } from "../colors";
 import { formatCompactMoney } from "../formatters";
 import { SalesTrendContent } from "./sales-trend-content";
 import { getNiceBounds, getXAxisLabels } from "./sales-trend-math";
+import { SalesTrendSkeleton } from "./sales-trend-skeleton";
 import type { TrendPoint } from "../types";
 
 type SalesTrendCardProps = {
@@ -128,11 +129,11 @@ function SalesTrendCardComponent({ loading, points }: SalesTrendCardProps) {
 
       <Card style={salesStyles.trendCard}>
         {loading ? (
-          <View style={salesStyles.emptyRow}>
-            <ThemedText style={[salesStyles.emptyText, { color: iconColor }]}>
-              Loading trend...
-            </ThemedText>
-          </View>
+          <SalesTrendSkeleton
+            chartBackground={chartBackground}
+            chartBorder={chartBorder}
+            chartMinHeight={chartMinHeight}
+          />
         ) : points.length === 0 ? (
           <View style={salesStyles.emptyRow}>
             <ThemedText style={[salesStyles.emptyText, { color: iconColor }]}>

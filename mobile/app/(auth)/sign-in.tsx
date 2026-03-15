@@ -8,7 +8,7 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import useAuthStyles from "./auth-stylesheet";
@@ -26,7 +26,6 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const router = useRouter();
   const styles = useAuthStyles();
   const { login } = useAuthContext();
   const background = useThemeColor({}, "background");
@@ -58,7 +57,7 @@ export default function SignIn() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [cardAnim, footerAnim, headerAnim]);
 
   const makeAnimStyle = (anim: Animated.Value) => ({
     opacity: anim,

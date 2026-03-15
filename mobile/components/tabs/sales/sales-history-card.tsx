@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui";
 import { ThemedText } from "@/components/themed-text";
 import useTabsStyles from "@/app/(tabs)/tabs-stylesheet";
 import useSalesStyles from "@/app/(tabs)/(sales)/sales-stylesheet";
@@ -31,10 +32,21 @@ function SalesHistoryCardComponent({ loading, rows }: SalesHistoryCardProps) {
       </ThemedText>
       <Card style={salesStyles.historyCard}>
         {loading ? (
-          <View style={salesStyles.emptyRow}>
-            <ThemedText style={[salesStyles.emptyText, { color: iconColor }]}>
-              Loading history...
-            </ThemedText>
+          <View>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <View key={`history-skeleton-${index}`}>
+                <View style={salesStyles.historyRow}>
+                  <Skeleton width={32} height={32} borderRadius={9} />
+                  <View style={salesStyles.historyInfo}>
+                    <Skeleton width={86} height={12} borderRadius={6} />
+                    <View style={{ height: 5 }} />
+                    <Skeleton width={104} height={10} borderRadius={6} />
+                  </View>
+                  <Skeleton width={72} height={14} borderRadius={7} />
+                </View>
+                {index < 3 && <View style={tabsStyles.divider} />}
+              </View>
+            ))}
           </View>
         ) : rows.length === 0 ? (
           <View style={salesStyles.emptyRow}>

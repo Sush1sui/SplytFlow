@@ -3,6 +3,7 @@ import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui";
 import { ThemedText } from "@/components/themed-text";
 import useTabsStyles from "@/app/(tabs)/tabs-stylesheet";
 import useSalesStyles from "@/app/(tabs)/(sales)/sales-stylesheet";
@@ -36,26 +37,26 @@ function SalesKpiGridComponent({
     () => [
       {
         label: "Total Sales",
-        value: loading ? "-" : formatMoney(grossSales),
+        value: formatMoney(grossSales),
         icon: "cash-outline" as const,
       },
       {
         label: "You Keep",
-        value: loading ? "-" : formatMoney(netSales),
+        value: formatMoney(netSales),
         icon: "trending-up-outline" as const,
       },
       {
         label: "Daily Average",
-        value: loading ? "-" : formatMoney(avgSalesPerDay),
+        value: formatMoney(avgSalesPerDay),
         icon: "analytics-outline" as const,
       },
       {
         label: "Number of Sales",
-        value: loading ? "-" : String(saleCount),
+        value: String(saleCount),
         icon: "layers-outline" as const,
       },
     ],
-    [avgSalesPerDay, grossSales, loading, netSales, saleCount],
+    [avgSalesPerDay, grossSales, netSales, saleCount],
   );
 
   return (
@@ -69,25 +70,43 @@ function SalesKpiGridComponent({
         style={salesStyles.kpiRowScroll}
         contentContainerStyle={salesStyles.kpiRowContent}
       >
-        {cards.map((item) => (
-          <Card key={item.label} style={salesStyles.kpiCard}>
-            <View style={salesStyles.kpiHeader}>
-              <View
-                style={[
-                  tabsStyles.centerContent,
-                  salesStyles.kpiIcon,
-                  { backgroundColor: tintSoft },
-                ]}
-              >
-                <Ionicons name={item.icon} size={16} color={tint} />
-              </View>
-              <ThemedText style={[salesStyles.kpiLabel, { color: iconColor }]}>
-                {item.label}
-              </ThemedText>
-            </View>
-            <ThemedText style={salesStyles.kpiValue}>{item.value}</ThemedText>
-          </Card>
-        ))}
+        {loading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <Card key={`kpi-skeleton-${index}`} style={salesStyles.kpiCard}>
+                <View style={salesStyles.kpiHeader}>
+                  <Skeleton width={28} height={28} borderRadius={9} />
+                  <Skeleton width={86} height={12} borderRadius={6} />
+                </View>
+                <Skeleton
+                  width={index === 3 ? 48 : 112}
+                  height={22}
+                  borderRadius={8}
+                />
+              </Card>
+            ))
+          : cards.map((item) => (
+              <Card key={item.label} style={salesStyles.kpiCard}>
+                <View style={salesStyles.kpiHeader}>
+                  <View
+                    style={[
+                      tabsStyles.centerContent,
+                      salesStyles.kpiIcon,
+                      { backgroundColor: tintSoft },
+                    ]}
+                  >
+                    <Ionicons name={item.icon} size={16} color={tint} />
+                  </View>
+                  <ThemedText
+                    style={[salesStyles.kpiLabel, { color: iconColor }]}
+                  >
+                    {item.label}
+                  </ThemedText>
+                </View>
+                <ThemedText style={salesStyles.kpiValue}>
+                  {item.value}
+                </ThemedText>
+              </Card>
+            ))}
       </ScrollView>
     </View>
   );

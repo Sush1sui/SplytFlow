@@ -62,7 +62,7 @@ export default function Home() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [actionsAnim, headerAnim, statsAnim]);
 
   useFocusEffect(
     useCallback(() => {

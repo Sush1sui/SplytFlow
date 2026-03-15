@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { View } from "react-native";
 
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui";
 import { ThemedText } from "@/components/themed-text";
 import useTabsStyles from "@/app/(tabs)/tabs-stylesheet";
 import useSalesStyles from "@/app/(tabs)/(sales)/sales-stylesheet";
@@ -46,9 +47,13 @@ function SalesSplitImpactCardComponent({
             >
               Total Split
             </ThemedText>
-            <ThemedText style={salesStyles.splitStatValue}>
-              {loading ? "-" : `${totalSplitPct.toFixed(1)}%`}
-            </ThemedText>
+            {loading ? (
+              <Skeleton width={72} height={22} borderRadius={8} />
+            ) : (
+              <ThemedText style={salesStyles.splitStatValue}>
+                {`${totalSplitPct.toFixed(1)}%`}
+              </ThemedText>
+            )}
           </View>
           <View style={salesStyles.splitStatBox}>
             <ThemedText
@@ -56,17 +61,42 @@ function SalesSplitImpactCardComponent({
             >
               Retained
             </ThemedText>
-            <ThemedText style={salesStyles.splitStatValue}>
-              {loading ? "-" : `${retainedPct.toFixed(1)}%`}
-            </ThemedText>
+            {loading ? (
+              <Skeleton width={72} height={22} borderRadius={8} />
+            ) : (
+              <ThemedText style={salesStyles.splitStatValue}>
+                {`${retainedPct.toFixed(1)}%`}
+              </ThemedText>
+            )}
           </View>
         </View>
 
-        <ThemedText style={[salesStyles.splitMeta, { color: iconColor }]}>
-          Estimated deductions: {loading ? "-" : formatMoney(deductions)}
-        </ThemedText>
+        {loading ? (
+          <View style={[salesStyles.splitMeta, { marginBottom: 12 }]}>
+            <Skeleton width={168} height={12} borderRadius={6} />
+          </View>
+        ) : (
+          <ThemedText style={[salesStyles.splitMeta, { color: iconColor }]}>
+            Estimated deductions: {formatMoney(deductions)}
+          </ThemedText>
+        )}
 
-        {loading ? null : topSplits.length === 0 ? (
+        {loading ? (
+          <View style={salesStyles.splitList}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <View
+                key={`split-skeleton-${index}`}
+                style={salesStyles.splitRow}
+              >
+                <View style={salesStyles.splitRowHeader}>
+                  <Skeleton width={84} height={12} borderRadius={6} />
+                  <Skeleton width={40} height={12} borderRadius={6} />
+                </View>
+                <Skeleton width="100%" height={8} borderRadius={999} />
+              </View>
+            ))}
+          </View>
+        ) : topSplits.length === 0 ? (
           <View style={salesStyles.emptyRowCompact}>
             <ThemedText style={[salesStyles.emptyText, { color: iconColor }]}>
               No configured splits

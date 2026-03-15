@@ -1,6 +1,6 @@
 import type { SalesPreset, SalesRange } from "./types";
 
-export const SALES_PRESETS: Array<{ key: SalesPreset; label: string }> = [
+export const SALES_PRESETS: { key: SalesPreset; label: string }[] = [
   { key: "1d", label: "1D" },
   { key: "1w", label: "1W" },
   { key: "1m", label: "1M" },

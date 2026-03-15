@@ -33,8 +33,6 @@ export function Button({
   ...props
 }: ButtonProps) {
   const tint = useThemeColor({}, "tint");
-  const text = useThemeColor({}, "text");
-  const background = useThemeColor({}, "background");
 
   const normalizedTint = (tint || "").toString().trim().toLowerCase();
   const primaryTextColor =

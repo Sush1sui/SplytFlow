@@ -65,7 +65,7 @@ export default function SignUp() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [cardAnim, footerAnim, headerAnim]);
 
   const makeAnimStyle = (anim: Animated.Value) => ({
     opacity: anim,

@@ -36,7 +36,6 @@ export default function useBottomTabStyles() {
         },
       }),
     // only recompute when device size or safe-area changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [insets.bottom, verticalPadding, labelSize],
   );
 

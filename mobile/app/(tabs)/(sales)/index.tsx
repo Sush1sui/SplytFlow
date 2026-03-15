@@ -96,7 +96,7 @@ export default function SalesIndex() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [controlsAnim, detailsAnim, headerAnim, metricsAnim]);
 
   const animStyle = (anim: Animated.Value) => ({
     opacity: anim,

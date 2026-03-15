@@ -38,7 +38,7 @@ type SetDayResponse = {
 };
 
 type SalesRangeResponse = {
-  sales: Array<{ id: string; amount: number; createdAt: string }>;
+  sales: { id: string; amount: number; createdAt: string }[];
   net_sale: number;
 };
 

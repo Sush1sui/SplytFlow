@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, View } from "react-native";
 import Svg, {
   Circle,
@@ -48,20 +48,26 @@ function SalesTrendCanvasComponent({
     setPlotWidth((prev) => (prev === width ? prev : width));
   };
 
-  const getX = (index: number) => {
-    if (values.length <= 1) return plotWidth / 2;
-    return (index / (values.length - 1)) * plotWidth;
-  };
+  const getX = useCallback(
+    (index: number) => {
+      if (values.length <= 1) return plotWidth / 2;
+      return (index / (values.length - 1)) * plotWidth;
+    },
+    [plotWidth, values.length],
+  );
 
-  const getY = (value: number) => {
-    const ratio = (value - yMin) / yRange;
-    return plotHeight - ratio * plotHeight;
-  };
+  const getY = useCallback(
+    (value: number) => {
+      const ratio = (value - yMin) / yRange;
+      return plotHeight - ratio * plotHeight;
+    },
+    [plotHeight, yMin, yRange],
+  );
 
   const linePoints = useMemo(
     () =>
       values.map((value, index) => `${getX(index)},${getY(value)}`).join(" "),
-    [values, plotWidth, plotHeight, yMin, yRange],
+    [getX, getY, values],
   );
 
   const areaFillPoints = useMemo(() => {

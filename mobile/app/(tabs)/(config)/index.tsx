@@ -85,7 +85,7 @@ export default function ConfigIndex() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [headerAnim, section1Anim, section2Anim]);
 
   const animStyle = (anim: Animated.Value) => ({
     opacity: anim,

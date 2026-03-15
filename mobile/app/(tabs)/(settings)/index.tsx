@@ -97,7 +97,7 @@ export default function SettingsIndex() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [headerAnim, profileAnim, section1Anim, section2Anim]);
 
   const animStyle = (anim: Animated.Value) => ({
     opacity: anim,
