@@ -304,6 +304,35 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 999,
   },
+  splitHistoryWrap: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(140,140,140,0.2)",
+    paddingTop: 10,
+    gap: 8,
+  },
+  splitHistoryTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  splitHistoryItem: {
+    borderWidth: 1,
+    borderColor: "rgba(140,140,140,0.22)",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 4,
+  },
+  splitHistoryDate: {
+    fontSize: 12,
+    opacity: 0.82,
+  },
+  splitHistorySummary: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "500",
+  },
   historyCard: {
     padding: 14,
   },

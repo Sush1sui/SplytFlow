@@ -1,9 +1,57 @@
 import Elysia from "elysia";
 import * as splitService from "./service";
-import { SplitLimitExceededError } from "./service";
-import { DeleteSplitBody, SplitCreateOrUpdateBody } from "./model";
+import {
+  SplitCorrectionValidationError,
+  SplitLimitExceededError,
+} from "./service";
+import {
+  DeleteSplitBody,
+  SplitCreateOrUpdateBody,
+  SplitHistoryCorrectBody,
+} from "./model";
 
 const split = new Elysia({ prefix: "/split" })
+  /**
+   * GET /split/history/:userId/corrections?limit=25
+   * Response: 200 { corrections: SplitHistory[] } | 400 { error: string } | 500 { error: string }
+   */
+  .get("/history/:userId/corrections", async ({ params, query, set }) => {
+    try {
+      const { userId } = params;
+
+      if (!userId) {
+        set.status = 400;
+        return { error: "userId is required" };
+      }
+
+      const rawLimit = (query as { limit?: string }).limit;
+      const hasLimit = typeof rawLimit === "string";
+      const parsedLimit = hasLimit ? Number(rawLimit) : undefined;
+
+      if (
+        hasLimit &&
+        (parsedLimit === undefined ||
+          !Number.isFinite(parsedLimit) ||
+          parsedLimit <= 0)
+      ) {
+        set.status = 400;
+        return { error: "limit must be a positive number" };
+      }
+
+      const corrections = await splitService.getCorrectionHistoryByUserId(
+        userId,
+        parsedLimit,
+      );
+
+      set.status = 200;
+      return { corrections };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      set.status = 500;
+      return { error: message };
+    }
+  })
   /**
    * GET /split/:id
    * Response: 200 { splits: Split[] } | 400 { error: string } | 404 { error: string } | 500 { error: string }
@@ -123,6 +171,51 @@ const split = new Elysia({ prefix: "/split" })
       set.status = 200;
       return { message: `Deleted all splits for user ${userId}` };
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      set.status = 500;
+      return { error: message };
+    }
+  })
+  /**
+   * POST /split/history/correct
+   * Body: { userId, startAt, endAt?, breakdown: [{ name, value }], reason? }
+   * Response: 200 { correctionBatchId, insertedRows, ... } | 400 { error: string } | 500 { error: string }
+   */
+  .post("/history/correct", async ({ body, set }) => {
+    try {
+      const { userId, startAt, endAt, breakdown, reason } =
+        body as SplitHistoryCorrectBody;
+
+      if (!userId || !startAt || !Array.isArray(breakdown)) {
+        set.status = 400;
+        return {
+          error: "userId, startAt, and breakdown array are required",
+        };
+      }
+
+      const startDate = new Date(startAt);
+      const endDate = endAt ? new Date(endAt) : undefined;
+
+      const result = await splitService.applyHistoricalCorrection(
+        userId,
+        startDate,
+        endDate,
+        breakdown,
+        reason,
+      );
+
+      set.status = 200;
+      return result;
+    } catch (error) {
+      if (
+        error instanceof SplitCorrectionValidationError ||
+        error instanceof SplitLimitExceededError
+      ) {
+        set.status = 400;
+        return { error: error.message };
+      }
+
       const message =
         error instanceof Error ? error.message : "An unknown error occurred";
       set.status = 500;

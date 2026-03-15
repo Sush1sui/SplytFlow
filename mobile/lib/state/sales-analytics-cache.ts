@@ -1,6 +1,7 @@
 import type {
   SaleRow,
   SalesPreset,
+  SplitBreakdownTimelineItem,
   SplitItem,
 } from "@/components/tabs/sales/types";
 
@@ -13,6 +14,7 @@ type CacheKey = `${UserId}:${SalesPreset}`;
 export type SalesAnalyticsCacheEntry = {
   salesRows: SaleRow[];
   splitRows: SplitItem[];
+  splitTimelineRows: SplitBreakdownTimelineItem[];
   netSales: number;
   fetchedAt: number;
   version: number;

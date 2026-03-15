@@ -84,6 +84,9 @@ export const splitHistory = pgTable(
     totalSplitPct: doublePrecision("totalSplitPct").notNull(),
     // Optional snapshot for future per-category historical breakdown.
     breakdownJson: jsonb("breakdownJson"),
+    source: varchar("source").notNull().default("live"),
+    correctionBatchId: uuid("correctionBatchId"),
+    reason: text("reason"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [

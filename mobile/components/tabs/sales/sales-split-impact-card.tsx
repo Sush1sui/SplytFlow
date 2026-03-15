@@ -10,7 +10,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 
 import { colorWithOpacity } from "./colors";
 import { formatMoney } from "./formatters";
-import type { SplitItem } from "./types";
+import type { SplitBreakdownTimelineItem, SplitItem } from "./types";
 
 type SalesSplitImpactCardProps = {
   loading: boolean;
@@ -18,6 +18,20 @@ type SalesSplitImpactCardProps = {
   retainedPct: number;
   deductions: number;
   topSplits: SplitItem[];
+  splitTimelineRows: SplitBreakdownTimelineItem[];
+};
+
+const formatSnapshotDate = (value: string | null) => {
+  if (!value) return "Earlier setup";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Earlier setup";
+
+  return parsed.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 function SalesSplitImpactCardComponent({
@@ -26,6 +40,7 @@ function SalesSplitImpactCardComponent({
   retainedPct,
   deductions,
   topSplits,
+  splitTimelineRows,
 }: SalesSplitImpactCardProps) {
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
@@ -33,6 +48,7 @@ function SalesSplitImpactCardComponent({
   const salesStyles = useSalesStyles();
   const splitTrackColor = colorWithOpacity(iconColor, 0.13);
   const splitFillColor = colorWithOpacity(tint, 0.66);
+  const previousTimelineRows = splitTimelineRows.slice(0, -1).reverse();
 
   return (
     <View style={salesStyles.sectionWrap}>
@@ -140,6 +156,40 @@ function SalesSplitImpactCardComponent({
             })}
           </View>
         )}
+
+        {loading ? null : previousTimelineRows.length > 0 ? (
+          <View style={salesStyles.splitHistoryWrap}>
+            <ThemedText
+              style={[salesStyles.splitHistoryTitle, { color: iconColor }]}
+            >
+              Also used in this range
+            </ThemedText>
+
+            {previousTimelineRows.slice(0, 3).map((snapshot, index) => {
+              const breakdownLabel = snapshot.breakdown
+                .slice(0, 3)
+                .map((item) => `${item.name} ${Number(item.value).toFixed(1)}%`)
+                .join(" • ");
+
+              return (
+                <View
+                  key={`${snapshot.effectiveFrom ?? "none"}-${index}`}
+                  style={salesStyles.splitHistoryItem}
+                >
+                  <ThemedText
+                    style={[salesStyles.splitHistoryDate, { color: iconColor }]}
+                  >
+                    From {formatSnapshotDate(snapshot.effectiveFrom)}
+                  </ThemedText>
+                  <ThemedText style={salesStyles.splitHistorySummary}>
+                    {`${Number(snapshot.totalSplitPct).toFixed(1)}% split`}
+                    {breakdownLabel ? ` • ${breakdownLabel}` : ""}
+                  </ThemedText>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
       </Card>
     </View>
   );

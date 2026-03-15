@@ -63,11 +63,11 @@ function SalesTrendCardComponent({ loading, points }: SalesTrendCardProps) {
 
   const firstValue = values[0] ?? 0;
   const lastValue = values[values.length - 1] ?? 0;
+  const firstValueLabel = formatCompactMoney(firstValue);
+  const lastValueLabel = formatCompactMoney(lastValue);
   const hasComparisonPoint = values.length > 1;
   const delta = lastValue - firstValue;
   const isFlat = Math.abs(delta) < 1e-6;
-  const canShowPercent = hasComparisonPoint && Math.abs(firstValue) > 1e-6;
-  const deltaPct = canShowPercent ? (delta / firstValue) * 100 : null;
   const isUpTrend = delta >= 0;
   const trendLineColor = hasComparisonPoint
     ? isUpTrend
@@ -79,20 +79,11 @@ function SalesTrendCardComponent({ loading, points }: SalesTrendCardProps) {
       ? tint
       : downTint
     : iconColor;
-  const signedDeltaLabel = `${isUpTrend ? "+" : "-"}${formatCompactMoney(
-    Math.abs(delta),
-  )}`;
-  const changePercentLabel =
-    deltaPct !== null
-      ? `${isUpTrend ? "+" : ""}${deltaPct.toFixed(1)}%`
-      : isFlat
-        ? "No change"
-        : isUpTrend
-          ? "Trending up"
-          : "Trending down";
-  const changeValueLabel = isFlat
-    ? "Same as start"
-    : `${signedDeltaLabel} over this period`;
+  const deltaMagnitudeLabel = formatCompactMoney(Math.abs(delta));
+  const changePercentLabel = isFlat
+    ? "Change 0"
+    : `Change ${isUpTrend ? "+" : "-"}${deltaMagnitudeLabel}`;
+  const changeValueLabel = `Start ${firstValueLabel} -> Latest ${lastValueLabel}`;
 
   const changeChipBg = isUpTrend
     ? colorWithOpacity(tint, 0.12)
@@ -122,9 +113,6 @@ function SalesTrendCardComponent({ loading, points }: SalesTrendCardProps) {
         <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
           TREND SNAPSHOT
         </ThemedText>
-        <ThemedText style={[salesStyles.trendMeta, { color: iconColor }]}>
-          Line chart
-        </ThemedText>
       </View>
 
       <Card style={salesStyles.trendCard}>
@@ -145,6 +133,7 @@ function SalesTrendCardComponent({ loading, points }: SalesTrendCardProps) {
             iconColor={iconColor}
             isCompact={isCompact}
             values={values}
+            firstValue={firstValue}
             lastValue={lastValue}
             hasComparisonPoint={hasComparisonPoint}
             changeChipBg={changeChipBg}

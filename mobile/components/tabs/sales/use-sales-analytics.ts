@@ -12,6 +12,7 @@ import { getSalesRange } from "./date-range";
 import type {
   SaleRow,
   SplitBreakdownItem,
+  SplitBreakdownTimelineItem,
   SalesPreset,
   SalesRangeResponse,
   SplitItem,
@@ -161,10 +162,74 @@ const mapBreakdownToSplitRows = (
     .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
 };
 
+const normalizeBreakdown = (breakdown: SplitBreakdownItem[]) =>
+  [...breakdown].sort((a, b) => a.name.localeCompare(b.name));
+
+const normalizeTimelineRows = (
+  timeline: SplitBreakdownTimelineItem[] | undefined,
+): SplitBreakdownTimelineItem[] => {
+  if (!Array.isArray(timeline)) return [];
+
+  return timeline
+    .map((item) => ({
+      effectiveFrom:
+        typeof item.effectiveFrom === "string" || item.effectiveFrom === null
+          ? item.effectiveFrom
+          : null,
+      totalSplitPct: Number(item.totalSplitPct) || 0,
+      breakdown: normalizeBreakdown(
+        Array.isArray(item.breakdown) ? item.breakdown : [],
+      ),
+      salesCount:
+        typeof item.salesCount === "number" && item.salesCount > 0
+          ? item.salesCount
+          : undefined,
+    }))
+    .sort((a, b) => {
+      const aTime = a.effectiveFrom ? new Date(a.effectiveFrom).getTime() : -1;
+      const bTime = b.effectiveFrom ? new Date(b.effectiveFrom).getTime() : -1;
+      return aTime - bTime;
+    });
+};
+
+const findEffectiveTimelineSnapshotAt = (
+  timeline: SplitBreakdownTimelineItem[],
+  at: Date,
+) => {
+  if (timeline.length === 0) return null;
+
+  let low = 0;
+  let high = timeline.length - 1;
+  let resolvedIndex = -1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const row = timeline[mid];
+    if (!row) break;
+
+    const rowTime = row.effectiveFrom
+      ? new Date(row.effectiveFrom).getTime()
+      : -1;
+
+    if (rowTime <= at.getTime()) {
+      resolvedIndex = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  if (resolvedIndex === -1) return null;
+  return timeline[resolvedIndex] ?? null;
+};
+
 export function useSalesAnalytics(userId?: string) {
   const [preset, setPreset] = useState<SalesPreset>("1w");
   const [salesRows, setSalesRows] = useState<SaleRow[]>([]);
   const [splitRows, setSplitRows] = useState<SplitItem[]>([]);
+  const [splitTimelineRows, setSplitTimelineRows] = useState<
+    SplitBreakdownTimelineItem[]
+  >([]);
   const [netSales, setNetSales] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -185,6 +250,7 @@ export function useSalesAnalytics(userId?: string) {
       if (!userId) {
         setSalesRows([]);
         setSplitRows([]);
+        setSplitTimelineRows([]);
         setNetSales(0);
         setErrorText(null);
         setLoading(false);
@@ -198,6 +264,7 @@ export function useSalesAnalytics(userId?: string) {
           setSalesRows(cached.salesRows);
           setNetSales(cached.netSales);
           setSplitRows(cached.splitRows);
+          setSplitTimelineRows(cached.splitTimelineRows);
           setErrorText(null);
           setLoading(false);
           setRefreshing(false);
@@ -266,14 +333,44 @@ export function useSalesAnalytics(userId?: string) {
             ? splitResult
             : [];
 
+        const resolvedTimelineRows = hasHistoricalBreakdown
+          ? (() => {
+              const timeline = normalizeTimelineRows(
+                salesResult.split_breakdown_timeline,
+              );
+
+              if (timeline.length > 0) {
+                return timeline;
+              }
+
+              return [
+                {
+                  effectiveFrom: null,
+                  totalSplitPct: resolvedSplitRows.reduce(
+                    (sum, split) => sum + (Number(split.value) || 0),
+                    0,
+                  ),
+                  breakdown: normalizeBreakdown(
+                    (salesResult.split_breakdown ?? []).map((item) => ({
+                      name: item.name,
+                      value: Number(item.value) || 0,
+                    })),
+                  ),
+                },
+              ];
+            })()
+          : [];
+
         setSalesRows(Array.isArray(salesResult.sales) ? salesResult.sales : []);
         setNetSales(Number(salesResult.net_sale) || 0);
         setSplitRows(resolvedSplitRows);
+        setSplitTimelineRows(resolvedTimelineRows);
 
         writeSalesAnalyticsCache(userId, preset, {
           salesRows: Array.isArray(salesResult.sales) ? salesResult.sales : [],
           netSales: Number(salesResult.net_sale) || 0,
           splitRows: resolvedSplitRows,
+          splitTimelineRows: resolvedTimelineRows,
         });
       } catch (error) {
         if (isStaleRequest()) return;
@@ -308,12 +405,71 @@ export function useSalesAnalytics(userId?: string) {
     ),
   );
   const avgSalesPerDay = grossSales / rangeDays;
-  const deductions = Math.max(grossSales - netSales, 0);
+  const avgSalesPerActiveDay = saleCount > 0 ? grossSales / saleCount : 0;
+  const rangeSplitRows = useMemo<SplitItem[]>(() => {
+    if (
+      salesRows.length === 0 ||
+      splitTimelineRows.length === 0 ||
+      grossSales <= 0
+    ) {
+      return splitRows;
+    }
+
+    const deductionByName = new Map<string, number>();
+
+    for (const sale of salesRows) {
+      const amount = Number(sale.amount) || 0;
+      if (amount <= 0) continue;
+
+      const snapshot = findEffectiveTimelineSnapshotAt(
+        splitTimelineRows,
+        new Date(sale.createdAt),
+      );
+      if (!snapshot) continue;
+
+      for (const part of snapshot.breakdown) {
+        const value = Number(part.value) || 0;
+        if (value <= 0) continue;
+
+        const next =
+          (deductionByName.get(part.name) ?? 0) + amount * (value / 100);
+        deductionByName.set(part.name, next);
+      }
+    }
+
+    if (deductionByName.size === 0) {
+      return splitRows;
+    }
+
+    return [...deductionByName.entries()]
+      .map(([name, deduction]) => ({
+        id: `range-${name}`,
+        userId: userId ?? "",
+        name,
+        value: (deduction / grossSales) * 100,
+        createdAt: "",
+        updatedAt: "",
+      }))
+      .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+  }, [grossSales, salesRows, splitRows, splitTimelineRows, userId]);
 
   const totalSplitPct = useMemo(
-    () => splitRows.reduce((sum, split) => sum + (Number(split.value) || 0), 0),
-    [splitRows],
+    () =>
+      Math.max(
+        0,
+        Math.min(
+          100,
+          rangeSplitRows.reduce(
+            (sum, split) => sum + (Number(split.value) || 0),
+            0,
+          ),
+        ),
+      ),
+    [rangeSplitRows],
   );
+
+  const deductions = grossSales * (totalSplitPct / 100);
+  const computedNetSales = Math.max(grossSales - deductions, 0);
 
   const retainedPct = Math.max(100 - totalSplitPct, 0);
 
@@ -336,10 +492,10 @@ export function useSalesAnalytics(userId?: string) {
 
   const topSplits = useMemo(
     () =>
-      [...splitRows]
+      [...rangeSplitRows]
         .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
         .slice(0, 4),
-    [splitRows],
+    [rangeSplitRows],
   );
 
   const refresh = useCallback(async () => {
@@ -358,14 +514,16 @@ export function useSalesAnalytics(userId?: string) {
     historyRows,
     trendPoints,
     topSplits,
+    splitTimelineRows,
     loading,
     refreshing,
     errorText,
     grossSales,
-    netSales,
+    netSales: splitTimelineRows.length > 0 ? computedNetSales : netSales,
     deductions,
     saleCount,
     avgSalesPerDay,
+    avgSalesPerActiveDay,
     totalSplitPct,
     retainedPct,
     refresh,

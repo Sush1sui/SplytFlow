@@ -40,11 +40,13 @@ export default function SalesIndex() {
     deductions,
     saleCount,
     avgSalesPerDay,
+    avgSalesPerActiveDay,
     totalSplitPct,
     retainedPct,
     trendPoints,
     historyRows,
     topSplits,
+    splitTimelineRows,
     refresh,
     refreshIfStale,
   } = useSalesAnalytics(user?.id);
@@ -159,6 +161,7 @@ export default function SalesIndex() {
             grossSales={grossSales}
             netSales={netSales}
             avgSalesPerDay={avgSalesPerDay}
+            avgSalesPerActiveDay={avgSalesPerActiveDay}
             saleCount={saleCount}
           />
           <SalesTrendCard loading={loading} points={trendPoints} />
@@ -171,6 +174,7 @@ export default function SalesIndex() {
             retainedPct={retainedPct}
             deductions={deductions}
             topSplits={topSplits}
+            splitTimelineRows={splitTimelineRows}
           />
           <SalesHistoryCard loading={loading} rows={historyRows} />
         </Animated.View>

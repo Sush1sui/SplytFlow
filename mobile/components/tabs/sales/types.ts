@@ -18,11 +18,19 @@ export type SalesRangeResponse = {
   sales: SaleRow[];
   net_sale: number;
   split_breakdown?: SplitBreakdownItem[];
+  split_breakdown_timeline?: SplitBreakdownTimelineItem[];
 };
 
 export type SplitBreakdownItem = {
   name: string;
   value: number;
+};
+
+export type SplitBreakdownTimelineItem = {
+  effectiveFrom: string | null;
+  totalSplitPct: number;
+  breakdown: SplitBreakdownItem[];
+  salesCount?: number;
 };
 
 export type SplitItem = {

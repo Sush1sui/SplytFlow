@@ -12,6 +12,7 @@ type SalesTrendContentProps = {
   iconColor: string;
   isCompact: boolean;
   values: number[];
+  firstValue: number;
   lastValue: number;
   hasComparisonPoint: boolean;
   changeChipBg: string;
@@ -38,6 +39,7 @@ function SalesTrendContentComponent({
   iconColor,
   isCompact,
   values,
+  firstValue,
   lastValue,
   hasComparisonPoint,
   changeChipBg,
@@ -80,6 +82,20 @@ function SalesTrendContentComponent({
           >
             {formatCompactMoney(lastValue)}
           </ThemedText>
+
+          <ThemedText
+            style={[
+              salesStyles.trendMetricLabel,
+              { color: iconColor, marginTop: 8 },
+            ]}
+          >
+            Start of range
+          </ThemedText>
+          <ThemedText
+            style={[salesStyles.trendMetricValue, { color: iconColor }]}
+          >
+            {formatCompactMoney(firstValue)}
+          </ThemedText>
         </View>
 
         {hasComparisonPoint ? (
@@ -104,7 +120,29 @@ function SalesTrendContentComponent({
               {changeValueLabel}
             </ThemedText>
           </View>
-        ) : null}
+        ) : (
+          <View
+            style={[
+              salesStyles.trendChangeChip,
+              isCompact && salesStyles.trendChangeChipCompact,
+              {
+                backgroundColor: "transparent",
+                borderColor: `${iconColor}22`,
+              },
+            ]}
+          >
+            <ThemedText
+              style={[salesStyles.trendChangeText, { color: iconColor }]}
+            >
+              No change yet
+            </ThemedText>
+            <ThemedText
+              style={[salesStyles.trendChangeSubtext, { color: iconColor }]}
+            >
+              Need at least 2 points in this range
+            </ThemedText>
+          </View>
+        )}
       </View>
 
       <View

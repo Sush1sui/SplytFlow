@@ -40,6 +40,12 @@ export const API_ENDPOINTS = {
     BY_USER: (userId: string) => `/sales/${userId}`,
   },
   SPLIT: {
+    UPSERT: "/split",
+    DELETE: "/split",
+    DELETE_ALL_BY_USER: (userId: string) => `/split/all/${userId}`,
     BY_USER: (userId: string) => `/split/${userId}`,
+    HISTORY_CORRECT: "/split/history/correct",
+    CORRECTION_HISTORY_BY_USER: (userId: string, limit = 25) =>
+      `/split/history/${userId}/corrections?limit=${limit}`,
   },
 } as const;

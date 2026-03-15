@@ -17,6 +17,7 @@ type SalesKpiGridProps = {
   grossSales: number;
   netSales: number;
   avgSalesPerDay: number;
+  avgSalesPerActiveDay: number;
   saleCount: number;
 };
 
@@ -25,6 +26,7 @@ function SalesKpiGridComponent({
   grossSales,
   netSales,
   avgSalesPerDay,
+  avgSalesPerActiveDay,
   saleCount,
 }: SalesKpiGridProps) {
   const tint = useThemeColor({}, "tint");
@@ -46,17 +48,22 @@ function SalesKpiGridComponent({
         icon: "trending-up-outline" as const,
       },
       {
-        label: "Daily Average",
+        label: "Avg Per Day (Range)",
         value: formatMoney(avgSalesPerDay),
         icon: "analytics-outline" as const,
       },
       {
-        label: "Number of Sales",
+        label: "Avg Per Active Day",
+        value: formatMoney(avgSalesPerActiveDay),
+        icon: "bar-chart-outline" as const,
+      },
+      {
+        label: "Active Days",
         value: String(saleCount),
         icon: "layers-outline" as const,
       },
     ],
-    [avgSalesPerDay, grossSales, netSales, saleCount],
+    [avgSalesPerActiveDay, avgSalesPerDay, grossSales, netSales, saleCount],
   );
 
   return (
@@ -71,14 +78,14 @@ function SalesKpiGridComponent({
         contentContainerStyle={salesStyles.kpiRowContent}
       >
         {loading
-          ? Array.from({ length: 4 }).map((_, index) => (
+          ? Array.from({ length: 5 }).map((_, index) => (
               <Card key={`kpi-skeleton-${index}`} style={salesStyles.kpiCard}>
                 <View style={salesStyles.kpiHeader}>
                   <Skeleton width={28} height={28} borderRadius={9} />
                   <Skeleton width={86} height={12} borderRadius={6} />
                 </View>
                 <Skeleton
-                  width={index === 3 ? 48 : 112}
+                  width={index === 4 ? 48 : 112}
                   height={22}
                   borderRadius={8}
                 />

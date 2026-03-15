@@ -21,7 +21,10 @@ import {
   users as usersTable,
 } from "../db/schema";
 import * as splitService from "../modules/split/service";
-import { SplitLimitExceededError } from "../modules/split/service";
+import {
+  SplitCorrectionValidationError,
+  SplitLimitExceededError,
+} from "../modules/split/service";
 import * as saleService from "../modules/sale/service";
 
 // ─── Test Fixtures ───────────────────────────────────────────────────────────
@@ -297,6 +300,10 @@ describe("splitService.deleteSplitByName", () => {
   it("deletes a single split by name", async () => {
     // "Rent" was created in the upsert suite — delete it directly
     const deleted = await splitService.deleteSplitByName(TEST_USER_ID, "Rent");
+    expect(deleted).not.toBeNull();
+    if (!deleted) {
+      throw new Error("Expected split deletion result");
+    }
     expect(deleted.length).toBe(1);
     expect(deleted[0].name).toBe("Rent");
   });
@@ -413,6 +420,160 @@ describe("splitService SplitHistory write path", () => {
   });
 });
 
+describe("splitService.applyHistoricalCorrection", () => {
+  it("applies bounded correction and restores original timeline after endAt", async () => {
+    await resetSalesAndSplitStateForReadHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Ops", 40);
+
+    const firstSale = await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-06-01T10:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    // Ensure deterministic ordering for updatedAt-based timeline resolution.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    await splitService.upsert(TEST_USER_ID, "Ops", 20);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const secondSale = await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-06-02T10:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    const correctionStart = new Date(firstSale.updatedAt.getTime() - 1);
+    const correctionEnd = new Date(secondSale.updatedAt.getTime());
+
+    await splitService.applyHistoricalCorrection(
+      TEST_USER_ID,
+      correctionStart,
+      correctionEnd,
+      [{ name: "Ops", value: 10 }],
+      "correct old period snapshot",
+    );
+
+    const olderPeriod = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-06-01T00:00:00.000Z"),
+      new Date("2099-06-02T00:00:00.000Z"),
+    );
+    expect(olderPeriod.net_sale).toBeCloseTo(90, 5);
+    expect(parseBreakdown((olderPeriod as any).split_breakdown)).toEqual([
+      { name: "Ops", value: 10 },
+    ]);
+
+    const newerPeriod = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-06-02T00:00:00.000Z"),
+      new Date("2099-06-03T00:00:00.000Z"),
+    );
+    expect(newerPeriod.net_sale).toBeCloseTo(80, 5);
+    expect(parseBreakdown((newerPeriod as any).split_breakdown)).toEqual([
+      { name: "Ops", value: 20 },
+    ]);
+  });
+
+  it("open-ended correction updates current Split table to remain consistent", async () => {
+    await resetSplitStateForHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 25);
+    await splitService.upsert(TEST_USER_ID, "Utilities", 15);
+
+    await splitService.applyHistoricalCorrection(
+      TEST_USER_ID,
+      new Date(Date.now() - 60_000),
+      undefined,
+      [{ name: "Ops", value: 30 }],
+      "normalize split setup",
+    );
+
+    const activeSplits = await splitService.getSplitsByUserId(TEST_USER_ID);
+    expect(activeSplits).toHaveLength(1);
+    expect(activeSplits[0]?.name).toBe("Ops");
+    expect(activeSplits[0]?.value).toBeCloseTo(30, 5);
+  });
+
+  it("rejects no-op correction payload", async () => {
+    await resetSplitStateForHistoryTests();
+    await splitService.upsert(TEST_USER_ID, "Rent", 20);
+
+    await expect(
+      splitService.applyHistoricalCorrection(
+        TEST_USER_ID,
+        new Date("2099-08-01T00:00:00.000Z"),
+        new Date("2099-08-02T00:00:00.000Z"),
+        [{ name: "Rent", value: 20 }],
+      ),
+    ).rejects.toBeInstanceOf(SplitCorrectionValidationError);
+  });
+
+  it("allows extending a previously bounded window with the same breakdown", async () => {
+    await resetSplitStateForHistoryTests();
+    await splitService.upsert(TEST_USER_ID, "Ops", 0);
+
+    const startAt = new Date("2099-03-01T00:00:00.000Z");
+    const initialEndAt = new Date("2099-03-05T00:00:00.000Z");
+    const extendedEndAt = new Date("2099-03-11T00:00:00.000Z");
+
+    await splitService.applyHistoricalCorrection(
+      TEST_USER_ID,
+      startAt,
+      initialEndAt,
+      [{ name: "Ops", value: 30 }],
+      "initial bounded correction",
+    );
+
+    const extension = await splitService.applyHistoricalCorrection(
+      TEST_USER_ID,
+      startAt,
+      extendedEndAt,
+      [{ name: "Ops", value: 30 }],
+      "extend bounded correction",
+    );
+
+    expect(extension.startInserted).toBe(true);
+    expect(extension.restoreInserted).toBe(true);
+
+    const extensionRows = await db
+      .select({
+        effectiveFrom: splitHistoryTable.effectiveFrom,
+        totalSplitPct: splitHistoryTable.totalSplitPct,
+        source: splitHistoryTable.source,
+        correctionBatchId: splitHistoryTable.correctionBatchId,
+      })
+      .from(splitHistoryTable)
+      .where(eq(splitHistoryTable.userId, TEST_USER_ID))
+      .orderBy(
+        asc(splitHistoryTable.effectiveFrom),
+        asc(splitHistoryTable.createdAt),
+      );
+
+    const extensionStart = extensionRows.find(
+      (row) =>
+        row.correctionBatchId === extension.correctionBatchId &&
+        row.source === "correction_start",
+    );
+
+    const extensionRestore = extensionRows.find(
+      (row) =>
+        row.correctionBatchId === extension.correctionBatchId &&
+        row.source === "correction_restore",
+    );
+
+    expect(extensionStart?.effectiveFrom.toISOString()).toBe(
+      initialEndAt.toISOString(),
+    );
+    expect(extensionStart?.totalSplitPct).toBeCloseTo(30, 5);
+
+    expect(extensionRestore?.effectiveFrom.toISOString()).toBe(
+      extendedEndAt.toISOString(),
+    );
+    expect(extensionRestore?.totalSplitPct).toBeCloseTo(0, 5);
+  });
+});
+
 // ─── Sale Service – Delete ───────────────────────────────────────────────────
 
 describe("saleService.deleteSalesById", () => {
@@ -489,6 +650,14 @@ describe("saleService historical split timeline", () => {
     expect(parseBreakdown((fullRange as any).split_breakdown)).toEqual([
       { name: "Ops", value: 20 },
     ]);
+
+    const timeline = (fullRange as any).split_breakdown_timeline;
+    expect(Array.isArray(timeline)).toBe(true);
+    expect(timeline.length).toBe(1);
+    expect(timeline[0]?.totalSplitPct).toBeCloseTo(20, 5);
+    expect(parseBreakdown(timeline[0]?.breakdown)).toEqual([
+      { name: "Ops", value: 20 },
+    ]);
   });
 
   it("defaults to 0% split when no history exists before sale", async () => {
@@ -546,6 +715,54 @@ describe("saleService historical split timeline", () => {
       { name: "Rent", value: 20 },
       { name: "Utilities", value: 25 },
     ]);
+  });
+
+  it("includes earlier correction snapshots in timeline for past day buckets", async () => {
+    await resetSalesAndSplitStateForReadHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 0);
+
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const correctionStart = new Date(now - 10 * dayMs);
+    const correctionEnd = new Date(now - 5 * dayMs);
+    const inWindowSaleAt = new Date(now - 9 * dayMs);
+    const afterWindowSaleAt = new Date(now - 3 * dayMs);
+
+    await splitService.applyHistoricalCorrection(
+      TEST_USER_ID,
+      correctionStart,
+      correctionEnd,
+      [{ name: "Rent", value: 5 }],
+      "timeline visibility regression",
+    );
+
+    await saleService.createOrUpdate(TEST_USER_ID, 120, {
+      recordedAt: inWindowSaleAt,
+      utcOffsetMinutes: 0,
+    });
+
+    await saleService.createOrUpdate(TEST_USER_ID, 80, {
+      recordedAt: afterWindowSaleAt,
+      utcOffsetMinutes: 0,
+    });
+
+    const rangeResult = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date(now - 11 * dayMs),
+      new Date(now - 2 * dayMs),
+    );
+
+    const timeline = (rangeResult as any).split_breakdown_timeline;
+    expect(Array.isArray(timeline)).toBe(true);
+    expect(timeline.length).toBeGreaterThanOrEqual(2);
+
+    expect(timeline[0]?.totalSplitPct).toBeCloseTo(5, 5);
+    expect(parseBreakdown(timeline[0]?.breakdown)).toEqual([
+      { name: "Rent", value: 5 },
+    ]);
+
+    expect(timeline[timeline.length - 1]?.totalSplitPct).toBeCloseTo(0, 5);
   });
 });
 
@@ -665,6 +882,70 @@ describe("DELETE /split – HTTP", () => {
     });
     expect(status).toBe(404);
     expect((body as any).error).toMatch(/split not found/i);
+  });
+});
+
+describe("POST /split/history/correct – HTTP", () => {
+  it("returns 400 when required fields are missing", async () => {
+    const { status, body } = await req("POST", "/split/history/correct", {
+      userId: TEST_USER_ID,
+      breakdown: [{ name: "Ops", value: 20 }],
+    });
+
+    expect(status).toBe(400);
+    expect((body as any).error).toMatch(/required/i);
+  });
+
+  it("returns 200 for a valid correction request", async () => {
+    await resetSplitStateForHistoryTests();
+    await splitService.upsert(TEST_USER_ID, "Ops", 25);
+
+    const { status, body } = await req("POST", "/split/history/correct", {
+      userId: TEST_USER_ID,
+      startAt: "2099-09-01T00:00:00.000Z",
+      endAt: "2099-09-02T00:00:00.000Z",
+      breakdown: [{ name: "Ops", value: 10 }],
+      reason: "historical correction route test",
+    });
+
+    expect(status).toBe(200);
+    expect((body as any).correctionBatchId).toBeTruthy();
+    expect((body as any).insertedRows).toBeGreaterThan(0);
+  });
+});
+
+describe("GET /split/history/:userId/corrections – HTTP", () => {
+  it("returns 400 when limit query is invalid", async () => {
+    const { status, body } = await req(
+      "GET",
+      `/split/history/${TEST_USER_ID}/corrections?limit=0`,
+    );
+
+    expect(status).toBe(400);
+    expect((body as any).error).toMatch(/limit/i);
+  });
+
+  it("returns correction entries for user", async () => {
+    await resetSplitStateForHistoryTests();
+    await splitService.upsert(TEST_USER_ID, "Ops", 30);
+
+    await req("POST", "/split/history/correct", {
+      userId: TEST_USER_ID,
+      startAt: "2099-10-01T00:00:00.000Z",
+      endAt: "2099-10-02T00:00:00.000Z",
+      breakdown: [{ name: "Ops", value: 12 }],
+      reason: "correction history fetch test",
+    });
+
+    const { status, body } = await req(
+      "GET",
+      `/split/history/${TEST_USER_ID}/corrections?limit=10`,
+    );
+
+    expect(status).toBe(200);
+    expect(Array.isArray((body as any).corrections)).toBe(true);
+    expect((body as any).corrections.length).toBeGreaterThan(0);
+    expect((body as any).corrections[0]?.source).not.toBe("live");
   });
 });
 
