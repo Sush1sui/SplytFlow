@@ -17,6 +17,12 @@ export type SaleRow = {
 export type SalesRangeResponse = {
   sales: SaleRow[];
   net_sale: number;
+  split_breakdown?: SplitBreakdownItem[];
+};
+
+export type SplitBreakdownItem = {
+  name: string;
+  value: number;
 };
 
 export type SplitItem = {

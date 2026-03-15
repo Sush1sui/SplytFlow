@@ -253,7 +253,7 @@ export default function Otp() {
 
               <View style={otpStyles.resendContainer}>
                 <ThemedText style={otpStyles.resendText}>
-                  Didn't receive the code?
+                  Didn&apos;t receive the code?
                 </ThemedText>
                 <TouchableOpacity
                   onPress={handleResend}

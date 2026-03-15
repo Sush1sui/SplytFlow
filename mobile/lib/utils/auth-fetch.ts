@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
-import { apiFetcher } from "./api-fetcher";
-import { API_BASE_URL } from "@/constants/api";
+import { apiFetcher, ApiError } from "./api-fetcher";
+import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
+import type { RefreshResponse } from "../types/auth";
 
 // SecureStore key for the session token. Must be non-empty and may contain only
 // alphanumeric characters, '.', '-' and '_'. Expo inlines EXPO_PUBLIC_*
@@ -12,6 +13,74 @@ if (!TOKEN_KEY) {
     "EXPO_PUBLIC_TOKEN_KEY environment variable is required and cannot be empty",
   );
 }
+
+const REFRESH_TOKEN_KEY =
+  process.env.EXPO_PUBLIC_REFRESH_TOKEN_KEY &&
+  process.env.EXPO_PUBLIC_REFRESH_TOKEN_KEY.trim();
+if (!REFRESH_TOKEN_KEY) {
+  throw new Error(
+    "EXPO_PUBLIC_REFRESH_TOKEN_KEY environment variable is required and cannot be empty",
+  );
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+const isAuthStatusError = (error: unknown): boolean => {
+  if (error instanceof ApiError) {
+    return error.status === 401 || error.status === 403;
+  }
+
+  const message = error instanceof Error ? error.message : "";
+  return /API Error: (401|403)\b/.test(message);
+};
+
+const setAuthHeaders = (token: string, options?: RequestInit): HeadersInit => ({
+  ...options?.headers,
+  Authorization: `Bearer ${token}`,
+});
+
+const clearStoredTokens = async () => {
+  await Promise.all([
+    SecureStore.deleteItemAsync(TOKEN_KEY),
+    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+  ]);
+};
+
+const performSilentRefresh = async (): Promise<string | null> => {
+  const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  if (!refreshToken) return null;
+
+  try {
+    const data = await apiFetcher<RefreshResponse>(
+      `${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      },
+    );
+
+    await Promise.all([
+      SecureStore.setItemAsync(TOKEN_KEY, data.token),
+      SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refreshToken),
+    ]);
+
+    return data.token;
+  } catch {
+    await clearStoredTokens();
+    return null;
+  }
+};
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = performSilentRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+};
 
 /**
  * Get the stored session token
@@ -47,11 +116,24 @@ export async function authenticatedFetch<T = any>(
     throw new Error("No authentication token found");
   }
 
-  return apiFetcher<T>(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  try {
+    return await apiFetcher<T>(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: setAuthHeaders(token, options),
+    });
+  } catch (error) {
+    if (!isAuthStatusError(error)) {
+      throw error;
+    }
+
+    const refreshedToken = await refreshAccessToken();
+    if (!refreshedToken) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+
+    return apiFetcher<T>(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: setAuthHeaders(refreshedToken, options),
+    });
+  }
 }

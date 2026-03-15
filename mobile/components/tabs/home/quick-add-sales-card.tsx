@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ function QuickAddSalesCardComponent({ onSubmit }: QuickAddSalesCardProps) {
   const [quickSaleAmount, setQuickSaleAmount] = useState("");
   const [quickInputFocused, setQuickInputFocused] = useState(false);
   const [quickSaleSubmitting, setQuickSaleSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
@@ -57,6 +58,10 @@ function QuickAddSalesCardComponent({ onSubmit }: QuickAddSalesCardProps) {
   }, []);
 
   const handleSubmit = useCallback(async () => {
+    if (submitInFlightRef.current) {
+      return;
+    }
+
     const amount = Number.parseFloat(quickSaleAmount);
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -65,6 +70,7 @@ function QuickAddSalesCardComponent({ onSubmit }: QuickAddSalesCardProps) {
     }
 
     try {
+      submitInFlightRef.current = true;
       setQuickSaleSubmitting(true);
       await onSubmit(amount);
       setQuickSaleAmount("");
@@ -77,6 +83,7 @@ function QuickAddSalesCardComponent({ onSubmit }: QuickAddSalesCardProps) {
       Alert.alert("Quick Add Failed", message);
     } finally {
       setQuickSaleSubmitting(false);
+      submitInFlightRef.current = false;
     }
   }, [onSubmit, quickSaleAmount]);
 

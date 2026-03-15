@@ -20,16 +20,50 @@
  * });
  * ```
  */
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  body: unknown;
+
+  constructor(status: number, statusText: string, body: unknown) {
+    super(`API Error: ${status} ${statusText}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.statusText = statusText;
+    this.body = body;
+  }
+}
+
 export async function apiFetcher<T = any>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
   const response = await fetch(url, options);
+  const contentType = response.headers.get("content-type") || "";
+
+  const parseBody = async (): Promise<unknown> => {
+    if (response.status === 204) return null;
+
+    if (contentType.includes("application/json")) {
+      try {
+        return await response.json();
+      } catch {
+        return null;
+      }
+    }
+
+    try {
+      return await response.text();
+    } catch {
+      return null;
+    }
+  };
+
+  const body = await parseBody();
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    throw new ApiError(response.status, response.statusText, body);
   }
 
-  const data = await response.json();
-  return data as T;
+  return body as T;
 }

@@ -167,7 +167,7 @@ export default function SignIn() {
 
           <Animated.View style={[styles.footer, makeAnimStyle(footerAnim)]}>
             <ThemedText style={styles.footerText}>
-              Don't have an account?
+              Don&apos;t have an account?
             </ThemedText>
             <Link href="/(auth)/sign-up" replace asChild>
               <TouchableOpacity>

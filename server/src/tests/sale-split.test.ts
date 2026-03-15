@@ -12,10 +12,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
   sales as salesTable,
+  splitHistory as splitHistoryTable,
   splits as splitsTable,
   users as usersTable,
 } from "../db/schema";
@@ -50,11 +51,17 @@ beforeAll(async () => {
 
   // Clean up any leftover data from previous runs for this user
   await db.delete(salesTable).where(eq(salesTable.userId, TEST_USER_ID));
+  await db
+    .delete(splitHistoryTable)
+    .where(eq(splitHistoryTable.userId, TEST_USER_ID));
   await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
 });
 
 afterAll(async () => {
   await db.delete(salesTable).where(eq(salesTable.userId, TEST_USER_ID));
+  await db
+    .delete(splitHistoryTable)
+    .where(eq(splitHistoryTable.userId, TEST_USER_ID));
   await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
 
   if (CREATED_TEST_USER_ID) {
@@ -69,6 +76,45 @@ function todayRange() {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return { start, end };
+}
+
+function parseBreakdown(raw: unknown): Array<{ name: string; value: number }> {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item) => {
+      if (
+        typeof item !== "object" ||
+        item === null ||
+        !("name" in item) ||
+        !("value" in item)
+      ) {
+        return null;
+      }
+
+      const name = (item as { name: unknown }).name;
+      const value = (item as { value: unknown }).value;
+      if (typeof name !== "string" || typeof value !== "number") return null;
+
+      return { name, value };
+    })
+    .filter((item): item is { name: string; value: number } => item !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function resetSplitStateForHistoryTests() {
+  await db
+    .delete(splitHistoryTable)
+    .where(eq(splitHistoryTable.userId, TEST_USER_ID));
+  await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
+}
+
+async function resetSalesAndSplitStateForReadHistoryTests() {
+  await db.delete(salesTable).where(eq(salesTable.userId, TEST_USER_ID));
+  await db
+    .delete(splitHistoryTable)
+    .where(eq(splitHistoryTable.userId, TEST_USER_ID));
+  await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
 }
 
 // ─── Split Service ───────────────────────────────────────────────────────────
@@ -193,8 +239,9 @@ describe("saleService.getSalesByTimeRange", () => {
     expect(result.net_sale).toBeCloseTo(expectedNet, 5);
   });
 
-  it("net_sale reflects partial split coverage", async () => {
-    // Delete Marketing split so total = 25 + 40 = 65%
+  it("net_sale remains locked to historical split for already-recorded sales", async () => {
+    // Delete Marketing split after today's sale was already bucketed.
+    // Historical read should keep using the split active at sale time.
     await splitService.deleteSplitByName(TEST_USER_ID, "Marketing");
 
     const { start, end } = todayRange();
@@ -204,7 +251,7 @@ describe("saleService.getSalesByTimeRange", () => {
       end,
     );
     const grossTotal = result.sales.reduce((acc, s) => acc + s.amount, 0);
-    const expectedNet = grossTotal * (1 - 65 / 100);
+    const expectedNet = grossTotal * (1 - 100 / 100);
     expect(result.net_sale).toBeCloseTo(expectedNet, 5);
 
     // Restore Marketing for clean-up consistency
@@ -253,6 +300,14 @@ describe("splitService.deleteSplitByName", () => {
     expect(deleted.length).toBe(1);
     expect(deleted[0].name).toBe("Rent");
   });
+
+  it("returns null when split does not exist", async () => {
+    const deleted = await splitService.deleteSplitByName(
+      TEST_USER_ID,
+      "DoesNotExist",
+    );
+    expect(deleted).toBeNull();
+  });
 });
 
 describe("splitService.deleteAllSplitsByUserId", () => {
@@ -261,6 +316,100 @@ describe("splitService.deleteAllSplitsByUserId", () => {
     expect(deleted.length).toBeGreaterThanOrEqual(2); // Utilities + Marketing (Rent was removed in prior test)
     const remaining = await splitService.getSplitsByUserId(TEST_USER_ID);
     expect(remaining.length).toBe(0);
+  });
+});
+
+describe("splitService SplitHistory write path", () => {
+  it("upsert appends history with current total and breakdown", async () => {
+    await resetSplitStateForHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 30);
+
+    const historyRows = await db
+      .select({
+        totalSplitPct: splitHistoryTable.totalSplitPct,
+        breakdownJson: splitHistoryTable.breakdownJson,
+      })
+      .from(splitHistoryTable)
+      .where(eq(splitHistoryTable.userId, TEST_USER_ID))
+      .orderBy(
+        asc(splitHistoryTable.effectiveFrom),
+        asc(splitHistoryTable.createdAt),
+      );
+
+    expect(historyRows.length).toBe(1);
+    expect(historyRows[0].totalSplitPct).toBeCloseTo(30, 5);
+    expect(parseBreakdown(historyRows[0].breakdownJson)).toEqual([
+      { name: "Rent", value: 30 },
+    ]);
+  });
+
+  it("no-op updates do not append duplicate history rows", async () => {
+    await resetSplitStateForHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 30);
+    await splitService.upsert(TEST_USER_ID, "Rent", 30);
+
+    const historyRows = await db
+      .select({ id: splitHistoryTable.id })
+      .from(splitHistoryTable)
+      .where(eq(splitHistoryTable.userId, TEST_USER_ID));
+
+    expect(historyRows.length).toBe(1);
+  });
+
+  it("delete by name appends updated history snapshot", async () => {
+    await resetSplitStateForHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 30);
+    await splitService.upsert(TEST_USER_ID, "Utilities", 20);
+    await splitService.deleteSplitByName(TEST_USER_ID, "Rent");
+
+    const historyRows = await db
+      .select({
+        totalSplitPct: splitHistoryTable.totalSplitPct,
+        breakdownJson: splitHistoryTable.breakdownJson,
+      })
+      .from(splitHistoryTable)
+      .where(eq(splitHistoryTable.userId, TEST_USER_ID))
+      .orderBy(
+        asc(splitHistoryTable.effectiveFrom),
+        asc(splitHistoryTable.createdAt),
+      );
+
+    expect(historyRows.length).toBe(3);
+
+    const latest = historyRows[historyRows.length - 1];
+    expect(latest.totalSplitPct).toBeCloseTo(20, 5);
+    expect(parseBreakdown(latest.breakdownJson)).toEqual([
+      { name: "Utilities", value: 20 },
+    ]);
+  });
+
+  it("delete all appends total=0 with empty breakdown", async () => {
+    await resetSplitStateForHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 30);
+    await splitService.upsert(TEST_USER_ID, "Utilities", 20);
+    await splitService.deleteAllSplitsByUserId(TEST_USER_ID);
+
+    const historyRows = await db
+      .select({
+        totalSplitPct: splitHistoryTable.totalSplitPct,
+        breakdownJson: splitHistoryTable.breakdownJson,
+      })
+      .from(splitHistoryTable)
+      .where(eq(splitHistoryTable.userId, TEST_USER_ID))
+      .orderBy(
+        asc(splitHistoryTable.effectiveFrom),
+        asc(splitHistoryTable.createdAt),
+      );
+
+    expect(historyRows.length).toBe(3);
+
+    const latest = historyRows[historyRows.length - 1];
+    expect(latest.totalSplitPct).toBeCloseTo(0, 5);
+    expect(parseBreakdown(latest.breakdownJson)).toEqual([]);
   });
 });
 
@@ -290,6 +439,113 @@ describe("saleService.deleteSaleById (by date)", () => {
       sale.createdAt,
     );
     expect(deleted.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("saleService historical split timeline", () => {
+  it("keeps old split for old buckets and uses new split for new buckets", async () => {
+    await resetSalesAndSplitStateForReadHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Ops", 40);
+
+    await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-03-01T10:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    await splitService.upsert(TEST_USER_ID, "Ops", 20);
+
+    await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-03-02T10:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    const dayA = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-03-01T00:00:00.000Z"),
+      new Date("2099-03-02T00:00:00.000Z"),
+    );
+    expect(dayA.net_sale).toBeCloseTo(60, 5);
+    expect(parseBreakdown((dayA as any).split_breakdown)).toEqual([
+      { name: "Ops", value: 40 },
+    ]);
+
+    const dayB = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-03-02T00:00:00.000Z"),
+      new Date("2099-03-03T00:00:00.000Z"),
+    );
+    expect(dayB.net_sale).toBeCloseTo(80, 5);
+    expect(parseBreakdown((dayB as any).split_breakdown)).toEqual([
+      { name: "Ops", value: 20 },
+    ]);
+
+    const fullRange = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-03-01T00:00:00.000Z"),
+      new Date("2099-03-03T00:00:00.000Z"),
+    );
+    expect(fullRange.net_sale).toBeCloseTo(140, 5);
+    expect(parseBreakdown((fullRange as any).split_breakdown)).toEqual([
+      { name: "Ops", value: 20 },
+    ]);
+  });
+
+  it("defaults to 0% split when no history exists before sale", async () => {
+    await resetSalesAndSplitStateForReadHistoryTests();
+
+    await saleService.createOrUpdate(TEST_USER_ID, 123, {
+      recordedAt: new Date("2099-04-01T12:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    const result = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-04-01T00:00:00.000Z"),
+      new Date("2099-04-02T00:00:00.000Z"),
+    );
+
+    expect(result.net_sale).toBeCloseTo(123, 5);
+    expect(parseBreakdown((result as any).split_breakdown)).toEqual([]);
+  });
+
+  it("returns period-specific historical breakdown for split impact", async () => {
+    await resetSalesAndSplitStateForReadHistoryTests();
+
+    await splitService.upsert(TEST_USER_ID, "Rent", 20);
+    await splitService.upsert(TEST_USER_ID, "Utilities", 10);
+
+    await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-05-01T09:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    await splitService.upsert(TEST_USER_ID, "Utilities", 25);
+
+    await saleService.createOrUpdate(TEST_USER_ID, 100, {
+      recordedAt: new Date("2099-05-02T09:00:00.000Z"),
+      utcOffsetMinutes: 0,
+    });
+
+    const olderPeriod = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-05-01T00:00:00.000Z"),
+      new Date("2099-05-02T00:00:00.000Z"),
+    );
+    expect(parseBreakdown((olderPeriod as any).split_breakdown)).toEqual([
+      { name: "Rent", value: 20 },
+      { name: "Utilities", value: 10 },
+    ]);
+
+    const newerPeriod = await saleService.getSalesByTimeRange(
+      TEST_USER_ID,
+      new Date("2099-05-02T00:00:00.000Z"),
+      new Date("2099-05-03T00:00:00.000Z"),
+    );
+    expect(parseBreakdown((newerPeriod as any).split_breakdown)).toEqual([
+      { name: "Rent", value: 20 },
+      { name: "Utilities", value: 25 },
+    ]);
   });
 });
 
@@ -339,6 +595,8 @@ describe("POST /split – HTTP", () => {
   });
 
   it("creates a split and returns 201", async () => {
+    await db.delete(splitsTable).where(eq(splitsTable.userId, TEST_USER_ID));
+
     const { status, body } = await req("POST", "/split", {
       userId: TEST_USER_ID,
       name: "Rent",
@@ -398,6 +656,15 @@ describe("DELETE /split – HTTP", () => {
       name: "Rent",
     });
     expect(status).toBe(200);
+  });
+
+  it("returns 404 when split name does not exist", async () => {
+    const { status, body } = await req("DELETE", "/split", {
+      userId: TEST_USER_ID,
+      name: "UnknownSplitName",
+    });
+    expect(status).toBe(404);
+    expect((body as any).error).toMatch(/split not found/i);
   });
 });
 

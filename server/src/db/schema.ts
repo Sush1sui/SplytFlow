@@ -1,10 +1,12 @@
 import {
+  index,
   pgTable,
   uuid,
   varchar,
   text,
   integer,
   doublePrecision,
+  jsonb,
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
@@ -69,6 +71,27 @@ export const splits = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (table) => [unique("Split_userId_name_key").on(table.userId, table.name)],
+);
+
+export const splitHistory = pgTable(
+  "SplitHistory",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    effectiveFrom: timestamp("effectiveFrom").defaultNow().notNull(),
+    totalSplitPct: doublePrecision("totalSplitPct").notNull(),
+    // Optional snapshot for future per-category historical breakdown.
+    breakdownJson: jsonb("breakdownJson"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [
+    index("SplitHistory_userId_effectiveFrom_idx").on(
+      table.userId,
+      table.effectiveFrom,
+    ),
+  ],
 );
 
 export const sales = pgTable(

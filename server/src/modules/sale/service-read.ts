@@ -1,7 +1,7 @@
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 
 import { db } from "../../db";
-import { sales, splits } from "../../db/schema";
+import { sales, splitHistory } from "../../db/schema";
 import {
   isTransientDbConnectionError,
   withDbRetry,
@@ -13,6 +13,112 @@ import {
 } from "./day-bucket";
 import { SaleErrorCode, SaleServiceError } from "./errors";
 
+type SplitBreakdownItem = {
+  name: string;
+  value: number;
+};
+
+type SplitHistorySnapshot = {
+  effectiveFrom: Date;
+  totalSplitPct: number;
+  breakdownJson: unknown;
+  createdAt: Date;
+};
+
+type EffectiveSplitSnapshot = {
+  totalSplitPct: number;
+  breakdown: SplitBreakdownItem[];
+};
+
+function normalizeBreakdown(
+  breakdown: SplitBreakdownItem[],
+): SplitBreakdownItem[] {
+  return [...breakdown].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function parseBreakdownSnapshot(raw: unknown): SplitBreakdownItem[] {
+  if (!Array.isArray(raw)) return [];
+
+  const parsed = raw
+    .map((item) => {
+      if (
+        typeof item !== "object" ||
+        item === null ||
+        !("name" in item) ||
+        !("value" in item)
+      ) {
+        return null;
+      }
+
+      const name = (item as { name: unknown }).name;
+      const value = (item as { value: unknown }).value;
+      if (typeof name !== "string" || typeof value !== "number") return null;
+
+      return { name, value };
+    })
+    .filter((item): item is SplitBreakdownItem => item !== null);
+
+  return normalizeBreakdown(parsed);
+}
+
+function getEffectiveSplitSnapshotAt(
+  historyRows: SplitHistorySnapshot[],
+  at: Date,
+): EffectiveSplitSnapshot {
+  if (historyRows.length === 0) {
+    return { totalSplitPct: 0, breakdown: [] };
+  }
+
+  let low = 0;
+  let high = historyRows.length - 1;
+  let resolvedIndex = -1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const row = historyRows[mid];
+
+    if (!row) break;
+
+    if (row.effectiveFrom.getTime() <= at.getTime()) {
+      resolvedIndex = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  if (resolvedIndex === -1) {
+    return { totalSplitPct: 0, breakdown: [] };
+  }
+
+  const row = historyRows[resolvedIndex];
+  if (!row) {
+    return { totalSplitPct: 0, breakdown: [] };
+  }
+
+  return {
+    totalSplitPct: row.totalSplitPct,
+    breakdown: parseBreakdownSnapshot(row.breakdownJson),
+  };
+}
+
+async function getSplitHistoryRows(userId: string) {
+  return withDbRetry(
+    () =>
+      db
+        .select({
+          effectiveFrom: splitHistory.effectiveFrom,
+          totalSplitPct: splitHistory.totalSplitPct,
+          breakdownJson: splitHistory.breakdownJson,
+          createdAt: splitHistory.createdAt,
+        })
+        .from(splitHistory)
+        .where(eq(splitHistory.userId, userId))
+        .orderBy(asc(splitHistory.effectiveFrom), asc(splitHistory.createdAt)),
+    { retries: 1, delayMs: 400 },
+  );
+}
+
 export async function getSaleToday(userId: string, utcOffsetMinutes?: number) {
   try {
     const now = new Date();
@@ -20,14 +126,6 @@ export async function getSaleToday(userId: string, utcOffsetMinutes?: number) {
 
     const startOfDay = getDayBucketStartUtc(now, normalizedOffset);
     const { endOfDay } = getDayRangeFromBucketStart(startOfDay);
-
-    const splitsTotal = db
-      .select({
-        totalPct: sql<number>`COALESCE(SUM(${splits.value}), 0)`.as("totalPct"),
-      })
-      .from(splits)
-      .where(eq(splits.userId, userId))
-      .as("splits_total");
 
     const rows = await withDbRetry(
       () =>
@@ -38,10 +136,8 @@ export async function getSaleToday(userId: string, utcOffsetMinutes?: number) {
             amount: sales.amount,
             createdAt: sales.createdAt,
             updatedAt: sales.updatedAt,
-            _totalPct: splitsTotal.totalPct,
           })
           .from(sales)
-          .crossJoin(splitsTotal)
           .where(
             and(
               eq(sales.userId, userId),
@@ -55,10 +151,22 @@ export async function getSaleToday(userId: string, utcOffsetMinutes?: number) {
 
     if (rows.length === 0) return { sales: [], net_sale: 0 };
 
-    const { _totalPct, ...sale } = rows[0];
-    const net_sale = sale.amount * (1 - (_totalPct ?? 0) / 100);
+    const historyRows = await getSplitHistoryRows(userId);
+    const sale = rows[0];
+    if (!sale) return { sales: [], net_sale: 0 };
 
-    return { sales: [sale], net_sale };
+    const effectiveSplit = getEffectiveSplitSnapshotAt(
+      historyRows,
+      sale.updatedAt,
+    );
+    const net_sale =
+      sale.amount * (1 - (effectiveSplit.totalSplitPct ?? 0) / 100);
+
+    return {
+      sales: [sale],
+      net_sale,
+      split_breakdown: effectiveSplit.breakdown,
+    };
   } catch (error) {
     if (isTransientDbConnectionError(error)) {
       console.error("Error getting sale today: database connection timeout");
@@ -79,14 +187,6 @@ export async function getSalesByTimeRange(
   endDate: Date,
 ) {
   try {
-    const splitsTotal = db
-      .select({
-        totalPct: sql<number>`COALESCE(SUM(${splits.value}), 0)`.as("totalPct"),
-      })
-      .from(splits)
-      .where(eq(splits.userId, userId))
-      .as("splits_total");
-
     const rows = await withDbRetry(
       () =>
         db
@@ -96,31 +196,47 @@ export async function getSalesByTimeRange(
             amount: sales.amount,
             createdAt: sales.createdAt,
             updatedAt: sales.updatedAt,
-            _totalPct: splitsTotal.totalPct,
-            _totalAmount: sql<number>`SUM(${sales.amount}) OVER ()`.as(
-              "totalAmount",
-            ),
           })
           .from(sales)
-          .crossJoin(splitsTotal)
           .where(
             and(
               eq(sales.userId, userId),
               gte(sales.createdAt, startDate),
               lt(sales.createdAt, endDate),
             ),
-          ),
+          )
+          .orderBy(asc(sales.createdAt)),
       { retries: 1, delayMs: 400 },
     );
 
-    if (rows.length === 0) return { sales: [], net_sale: 0 };
+    if (rows.length === 0)
+      return { sales: [], net_sale: 0, split_breakdown: [] };
 
-    const totalAmount = rows[0]._totalAmount ?? 0;
-    const totalPct = rows[0]._totalPct ?? 0;
-    const net_sale = totalAmount * (1 - totalPct / 100);
-    const saleRows = rows.map(({ _totalPct, _totalAmount, ...sale }) => sale);
+    const historyRows = await getSplitHistoryRows(userId);
 
-    return { sales: saleRows, net_sale };
+    const net_sale = rows.reduce((sum, sale) => {
+      const effectiveSplit = getEffectiveSplitSnapshotAt(
+        historyRows,
+        sale.updatedAt,
+      );
+      return (
+        sum + sale.amount * (1 - (effectiveSplit.totalSplitPct ?? 0) / 100)
+      );
+    }, 0);
+
+    const saleRows = rows;
+    const contextSale = saleRows[saleRows.length - 1];
+    const contextTimestamp = contextSale?.updatedAt ?? endDate;
+    const contextSplit = getEffectiveSplitSnapshotAt(
+      historyRows,
+      contextTimestamp,
+    );
+
+    return {
+      sales: saleRows,
+      net_sale,
+      split_breakdown: contextSplit.breakdown,
+    };
   } catch (error) {
     if (isTransientDbConnectionError(error)) {
       console.error(

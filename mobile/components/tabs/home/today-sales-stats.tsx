@@ -47,7 +47,7 @@ function TodaySalesStatsComponent({
   return (
     <>
       <ThemedText style={[tabsStyles.sectionTitle, { color: iconColor }]}>
-        TODAY'S SALES
+        TODAY&apos;S SALES
       </ThemedText>
       <View style={[homeStyles.statsRow, isNarrow && homeStyles.statsRowStack]}>
         {stats.map((stat) => (
