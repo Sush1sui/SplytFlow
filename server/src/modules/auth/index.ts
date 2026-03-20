@@ -94,29 +94,29 @@ const auth = new Elysia({ prefix: "/auth" })
     "/signin",
     async ({ body, set, request }) => {
       try {
-      const ip = getClientIp(request.headers);
-      if (
-        !checkRateLimit(
-          `signin:${ip}`,
-          AUTH_RATE_LIMIT.max,
-          AUTH_RATE_LIMIT.windowMs,
-        )
-      ) {
-        set.status = 429;
-        return { error: "Too many requests. Please try again later." };
-      }
+        const ip = getClientIp(request.headers);
+        if (
+          !checkRateLimit(
+            `signin:${ip}`,
+            AUTH_RATE_LIMIT.max,
+            AUTH_RATE_LIMIT.windowMs,
+          )
+        ) {
+          set.status = 429;
+          return { error: "Too many requests. Please try again later." };
+        }
 
-      const { email, password } = body as SignInBody;
+        const { email, password } = body as SignInBody;
 
-      if (!email || !password) {
-        set.status = 400;
-        return { error: "Email and password are required" };
-      }
+        if (!email || !password) {
+          set.status = 400;
+          return { error: "Email and password are required" };
+        }
 
-      const result = await signin(email, password);
+        const result = await signin(email, password);
 
-      set.status = 200;
-      return result;
+        set.status = 200;
+        return result;
       } catch (error) {
         set.status = authErrorStatus(error);
         return authErrorPayload(error);
@@ -140,31 +140,31 @@ const auth = new Elysia({ prefix: "/auth" })
     "/signup",
     async ({ body, set, request }) => {
       try {
-      const ip = getClientIp(request.headers);
-      if (
-        !checkRateLimit(
-          `signup:${ip}`,
-          AUTH_RATE_LIMIT.max,
-          AUTH_RATE_LIMIT.windowMs,
-        )
-      ) {
-        set.status = 429;
-        return { error: "Too many requests. Please try again later." };
-      }
+        const ip = getClientIp(request.headers);
+        if (
+          !checkRateLimit(
+            `signup:${ip}`,
+            AUTH_RATE_LIMIT.max,
+            AUTH_RATE_LIMIT.windowMs,
+          )
+        ) {
+          set.status = 429;
+          return { error: "Too many requests. Please try again later." };
+        }
 
-      const { firstName, lastName, email, password, confirmPassword } =
-        body as SignUpBody;
+        const { firstName, lastName, email, password, confirmPassword } =
+          body as SignUpBody;
 
-      const result = await signup(
-        firstName,
-        lastName,
-        email,
-        password,
-        confirmPassword,
-      );
+        const result = await signup(
+          firstName,
+          lastName,
+          email,
+          password,
+          confirmPassword,
+        );
 
-      set.status = 201;
-      return result;
+        set.status = 201;
+        return result;
       } catch (error) {
         set.status = authErrorStatus(error);
         return authErrorPayload(error);
@@ -188,16 +188,16 @@ const auth = new Elysia({ prefix: "/auth" })
     "/refresh",
     async ({ body, set }) => {
       try {
-      const { refreshToken } = body;
+        const { refreshToken } = body;
 
-      if (!refreshToken) {
-        set.status = 400;
-        return { error: "Refresh token is required" };
-      }
+        if (!refreshToken) {
+          set.status = 400;
+          return { error: "Refresh token is required" };
+        }
 
-      const result = await refresh(refreshToken);
-      set.status = 200;
-      return result;
+        const result = await refresh(refreshToken);
+        set.status = 200;
+        return result;
       } catch (error) {
         set.status = authErrorStatus(error);
         return authErrorPayload(error);
@@ -238,10 +238,10 @@ const auth = new Elysia({ prefix: "/auth" })
         "/logout",
         async ({ userId, jti, tokenExp, body, set }) => {
           try {
-          const refreshToken = body.refreshToken;
-          await logoutSingle(jti, userId, tokenExp, refreshToken);
-          set.status = 200;
-          return { message: "Logged out successfully" };
+            const refreshToken = body.refreshToken;
+            await logoutSingle(jti, userId, tokenExp, refreshToken);
+            set.status = 200;
+            return { message: "Logged out successfully" };
           } catch (error) {
             set.status = authErrorStatus(error);
             return authErrorPayload(error);

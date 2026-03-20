@@ -160,11 +160,7 @@ export async function refresh(rawRefreshToken: string): Promise<{
     throw new AuthServiceError("unauthorized", "Invalid refresh token");
   }
 
-  const tokens = await issueTokenPair(
-    user.id,
-    user.email,
-    user.tokenVersion,
-  );
+  const tokens = await issueTokenPair(user.id, user.email, user.tokenVersion);
 
   return {
     token: tokens.token,
