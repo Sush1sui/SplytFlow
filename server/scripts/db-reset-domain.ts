@@ -1,7 +1,7 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "../src/db";
-import { sales, splitHistory, splits } from "../src/db/schema";
+import { sales, splitCategories, splits } from "../src/db/schema";
 
 type Options = {
   userId?: string;
@@ -64,21 +64,29 @@ async function countRows(userId?: string) {
   const [splitCountRow] = userId
     ? await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(splits)
-        .where(eq(splits.userId, userId))
-    : await db.select({ count: sql<number>`count(*)::int` }).from(splits);
+        .from(splitCategories)
+        .where(eq(splitCategories.userId, userId))
+    : await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(splitCategories);
 
-  const [historyCountRow] = userId
+  const [splitRuleCountRow] = userId
     ? await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(splitHistory)
-        .where(eq(splitHistory.userId, userId))
-    : await db.select({ count: sql<number>`count(*)::int` }).from(splitHistory);
+        .from(splits)
+        .innerJoin(
+          splitCategories,
+          and(
+            eq(splits.splitCategoryId, splitCategories.id),
+            eq(splitCategories.userId, userId),
+          ),
+        )
+    : await db.select({ count: sql<number>`count(*)::int` }).from(splits);
 
   return {
     sales: saleCountRow?.count ?? 0,
-    splits: splitCountRow?.count ?? 0,
-    splitHistory: historyCountRow?.count ?? 0,
+    splitCategories: splitCountRow?.count ?? 0,
+    splits: splitRuleCountRow?.count ?? 0,
   };
 }
 
@@ -87,8 +95,8 @@ function printSummary(
   counts: Awaited<ReturnType<typeof countRows>>,
 ) {
   console.log(`${prefix} Sale rows: ${counts.sales}`);
+  console.log(`${prefix} SplitCategory rows: ${counts.splitCategories}`);
   console.log(`${prefix} Split rows: ${counts.splits}`);
-  console.log(`${prefix} SplitHistory rows: ${counts.splitHistory}`);
 }
 
 async function run() {
@@ -108,7 +116,7 @@ async function run() {
   console.log(
     options.userId
       ? `Scope: user ${options.userId}`
-      : "Scope: all users (Sale, Split, SplitHistory)",
+      : "Scope: all users (Sale, SplitCategory, Split)",
   );
 
   const before = await countRows(options.userId);
@@ -123,14 +131,13 @@ async function run() {
     if (options.userId) {
       await tx.delete(sales).where(eq(sales.userId, options.userId!));
       await tx
-        .delete(splitHistory)
-        .where(eq(splitHistory.userId, options.userId!));
-      await tx.delete(splits).where(eq(splits.userId, options.userId!));
+        .delete(splitCategories)
+        .where(eq(splitCategories.userId, options.userId!));
       return;
     }
 
     await tx.delete(sales);
-    await tx.delete(splitHistory);
+    await tx.delete(splitCategories);
     await tx.delete(splits);
   });
 

@@ -1,23 +1,34 @@
-export type SplitCreateOrUpdateBody = {
+export type GetAllSplitsQuery = {
+  splitCategoryId: string;
+  userId: string;
+};
+
+export type GetSplitByIdQuery = {
+  userId: string;
+};
+
+export type SplitIdParams = {
+  id: string;
+};
+
+export type UpdateSplitBody = {
   userId: string;
   name: string;
   value: number;
 };
 
-export type DeleteSplitBody = {
+export type CreateSplitBody = {
   userId: string;
-  name: string;
-};
-
-export type SplitCorrectionBreakdownItem = {
   name: string;
   value: number;
+  splitCategoryId: string;
 };
 
-export type SplitHistoryCorrectBody = {
+export type DeleteSplitQuery = {
   userId: string;
-  startAt: string;
-  endAt?: string;
-  breakdown: SplitCorrectionBreakdownItem[];
-  reason?: string;
 };
+
+export type SplitServiceErrorCode =
+  | "validation"
+  | "not_found"
+  | "limit_exceeded";

@@ -1,12 +1,10 @@
 import {
-  index,
   pgTable,
   uuid,
   varchar,
   text,
   integer,
   doublePrecision,
-  jsonb,
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
@@ -55,13 +53,32 @@ export const otps = pgTable(
   ],
 );
 
-export const splits = pgTable(
-  "Split",
+export const splitCategories = pgTable(
+  "SplitCategory",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("userId")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  },
+  (table) => [
+    unique("SplitCategory_userId_name_key").on(table.userId, table.name),
+  ],
+);
+
+export const splits = pgTable(
+  "Split",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    splitCategoryId: uuid("splitCategoryId")
+      .notNull()
+      .references(() => splitCategories.id, { onDelete: "cascade" }),
     name: varchar("name").notNull(),
     value: doublePrecision("value").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -70,29 +87,10 @@ export const splits = pgTable(
       .notNull()
       .$onUpdateFn(() => new Date()),
   },
-  (table) => [unique("Split_userId_name_key").on(table.userId, table.name)],
-);
-
-export const splitHistory = pgTable(
-  "SplitHistory",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("userId")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    effectiveFrom: timestamp("effectiveFrom").defaultNow().notNull(),
-    totalSplitPct: doublePrecision("totalSplitPct").notNull(),
-    // Optional snapshot for future per-category historical breakdown.
-    breakdownJson: jsonb("breakdownJson"),
-    source: varchar("source").notNull().default("live"),
-    correctionBatchId: uuid("correctionBatchId"),
-    reason: text("reason"),
-    createdAt: timestamp("createdAt").defaultNow().notNull(),
-  },
   (table) => [
-    index("SplitHistory_userId_effectiveFrom_idx").on(
-      table.userId,
-      table.effectiveFrom,
+    unique("Split_splitCategoryId_name_key").on(
+      table.splitCategoryId,
+      table.name,
     ),
   ],
 );

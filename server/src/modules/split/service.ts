@@ -1,337 +1,164 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { splitHistory, splits } from "../../db/schema";
-import {
-  appendSplitHistorySnapshot,
-  getEffectiveSplitSnapshotAt,
-  getSnapshotFromHistoryRow,
-  getSplitHistoryRowsForLookup,
-  insertSplitHistorySnapshot,
-  normalizeBreakdown,
-  replaceCurrentSplitsWithBreakdown,
-  snapshotsAreEqual,
-  type EffectiveSplitSnapshot,
-  type SplitBreakdownSnapshotItem,
-} from "./history-support";
-
-export class SplitLimitExceededError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SplitLimitExceededError";
-  }
-}
-
-export class SplitCorrectionValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SplitCorrectionValidationError";
-  }
-}
+import { splitCategories, splits } from "../../db/schema";
+import { SplitServiceErrorCode } from "./model";
 
 const MAX_TOTAL_SPLIT = 100;
 
-function normalizeCorrectionBreakdown(
-  breakdown: SplitBreakdownSnapshotItem[],
-): SplitBreakdownSnapshotItem[] {
-  const seen = new Set<string>();
-  const normalized = breakdown.map((item) => {
-    const name = item.name?.trim();
-    const value = item.value;
-
-    if (!name) {
-      throw new SplitCorrectionValidationError(
-        "Each correction breakdown item must include a non-empty name",
-      );
-    }
-
-    if (!Number.isFinite(value) || value < 0) {
-      throw new SplitCorrectionValidationError(
-        `Invalid value for split '${name}'. Value must be a non-negative number`,
-      );
-    }
-
-    const key = name.toLowerCase();
-    if (seen.has(key)) {
-      throw new SplitCorrectionValidationError(
-        `Duplicate split name in correction payload: '${name}'`,
-      );
-    }
-    seen.add(key);
-
-    return { name, value };
-  });
-
-  return normalizeBreakdown(normalized);
+export class SplitServiceError extends Error {
+  constructor(
+    public readonly code: SplitServiceErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SplitServiceError";
+  }
 }
 
-export async function applyHistoricalCorrection(
+async function ensureCategoryOwnership(
+  splitCategoryId: string,
   userId: string,
-  startAt: Date,
-  endAt: Date | undefined,
-  breakdown: SplitBreakdownSnapshotItem[],
-  reason?: string,
 ) {
-  return db.transaction(async (tx) => {
-    if (Number.isNaN(startAt.getTime())) {
-      throw new SplitCorrectionValidationError(
-        "startAt must be a valid ISO timestamp",
-      );
-    }
+  const [category] = await db
+    .select({ id: splitCategories.id })
+    .from(splitCategories)
+    .where(
+      and(
+        eq(splitCategories.id, splitCategoryId),
+        eq(splitCategories.userId, userId),
+      ),
+    )
+    .limit(1);
 
-    if (endAt && Number.isNaN(endAt.getTime())) {
-      throw new SplitCorrectionValidationError(
-        "endAt must be a valid ISO timestamp",
-      );
-    }
+  if (!category) {
+    throw new SplitServiceError("not_found", "Split category not found");
+  }
+}
 
-    if (endAt && endAt.getTime() <= startAt.getTime()) {
-      throw new SplitCorrectionValidationError(
-        "endAt must be greater than startAt",
-      );
-    }
+async function getSplitOwnedByUser(id: string, userId: string) {
+  const [row] = await db
+    .select({
+      id: splits.id,
+      splitCategoryId: splits.splitCategoryId,
+      name: splits.name,
+      value: splits.value,
+    })
+    .from(splits)
+    .innerJoin(splitCategories, eq(splits.splitCategoryId, splitCategories.id))
+    .where(and(eq(splits.id, id), eq(splitCategories.userId, userId)))
+    .limit(1);
 
-    if (!endAt && startAt.getTime() > Date.now()) {
-      throw new SplitCorrectionValidationError(
-        "Open-ended correction cannot start in the future",
-      );
-    }
+  return row ?? null;
+}
 
-    const normalizedBreakdown = normalizeCorrectionBreakdown(breakdown);
-    const correctedTotalSplitPct = normalizedBreakdown.reduce(
-      (sum, item) => sum + item.value,
-      0,
+async function assertSplitCap(
+  splitCategoryId: string,
+  value: number,
+  excludeSplitId?: string,
+) {
+  const [row] = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(${splits.value}), 0)`,
+    })
+    .from(splits)
+    .where(
+      excludeSplitId
+        ? and(
+            eq(splits.splitCategoryId, splitCategoryId),
+            ne(splits.id, excludeSplitId),
+          )
+        : eq(splits.splitCategoryId, splitCategoryId),
     );
 
-    if (correctedTotalSplitPct > MAX_TOTAL_SPLIT) {
-      throw new SplitLimitExceededError(
-        `Total split percentage would exceed ${MAX_TOTAL_SPLIT}% (requested: ${correctedTotalSplitPct}%)`,
-      );
-    }
-
-    const historyRows = await getSplitHistoryRowsForLookup(tx, userId);
-    const startSnapshot = getEffectiveSplitSnapshotAt(historyRows, startAt);
-    const correctedSnapshot: EffectiveSplitSnapshot = {
-      totalSplitPct: correctedTotalSplitPct,
-      breakdown: normalizedBreakdown,
-    };
-
-    let correctionStartAt: Date | null = null;
-
-    if (!snapshotsAreEqual(startSnapshot, correctedSnapshot)) {
-      correctionStartAt = startAt;
-    } else {
-      const firstDivergingBoundary = historyRows.find((row) => {
-        const rowAt = row.effectiveFrom.getTime();
-        const startsAfterRequestedStart = rowAt > startAt.getTime();
-        const staysWithinWindow = !endAt || rowAt < endAt.getTime();
-
-        if (!startsAfterRequestedStart || !staysWithinWindow) {
-          return false;
-        }
-
-        const rowSnapshot = getSnapshotFromHistoryRow(row);
-        return !snapshotsAreEqual(rowSnapshot, correctedSnapshot);
-      });
-
-      if (firstDivergingBoundary) {
-        correctionStartAt = firstDivergingBoundary.effectiveFrom;
-      }
-    }
-
-    const shouldInsertCorrectionStart = correctionStartAt !== null;
-
-    const endSnapshot = endAt
-      ? getEffectiveSplitSnapshotAt(historyRows, endAt)
-      : null;
-
-    const shouldInsertCorrectionRestore =
-      !!endAt &&
-      shouldInsertCorrectionStart &&
-      !!endSnapshot &&
-      !snapshotsAreEqual(correctedSnapshot, endSnapshot);
-
-    if (!shouldInsertCorrectionStart && !shouldInsertCorrectionRestore) {
-      throw new SplitCorrectionValidationError(
-        "Correction produces no effective timeline change",
-      );
-    }
-
-    const normalizedReason = reason?.trim() ? reason.trim() : null;
-    const correctionBatchId = crypto.randomUUID();
-    let insertedRows = 0;
-
-    if (shouldInsertCorrectionStart) {
-      await insertSplitHistorySnapshot(tx, {
-        userId,
-        effectiveFrom: correctionStartAt ?? startAt,
-        totalSplitPct: correctedSnapshot.totalSplitPct,
-        breakdown: correctedSnapshot.breakdown,
-        source: "correction_start",
-        correctionBatchId,
-        reason: normalizedReason,
-      });
-      insertedRows += 1;
-    }
-
-    if (shouldInsertCorrectionRestore && endAt && endSnapshot) {
-      await insertSplitHistorySnapshot(tx, {
-        userId,
-        effectiveFrom: endAt,
-        totalSplitPct: endSnapshot.totalSplitPct,
-        breakdown: endSnapshot.breakdown,
-        source: "correction_restore",
-        correctionBatchId,
-        reason: normalizedReason,
-      });
-      insertedRows += 1;
-    }
-
-    if (!endAt && shouldInsertCorrectionStart) {
-      await replaceCurrentSplitsWithBreakdown(tx, userId, normalizedBreakdown);
-    }
-
-    return {
-      correctionBatchId,
-      insertedRows,
-      startInserted: shouldInsertCorrectionStart,
-      restoreInserted: shouldInsertCorrectionRestore,
-      totalSplitPct: correctedSnapshot.totalSplitPct,
-      breakdown: correctedSnapshot.breakdown,
-      reason: normalizedReason,
-    };
-  });
-}
-
-export async function upsert(userId: string, name: string, value: number) {
-  return db.transaction(async (tx) => {
-    // Sum all existing splits for this user, excluding the one being upserted
-    // so that an update doesn't double-count the current value
-    const [{ otherTotal }] = await tx
-      .select({
-        otherTotal: sql<number>`COALESCE(SUM(${splits.value}), 0)`,
-      })
-      .from(splits)
-      .where(and(eq(splits.userId, userId), ne(splits.name, name)));
-
-    if (otherTotal + value > MAX_TOTAL_SPLIT) {
-      throw new SplitLimitExceededError(
-        `Total split percentage would exceed ${MAX_TOTAL_SPLIT}% (other splits: ${otherTotal}%, requested: ${value}%)`,
-      );
-    }
-
-    const [split] = await tx
-      .insert(splits)
-      .values({ userId, name, value })
-      .onConflictDoUpdate({
-        target: [splits.userId, splits.name],
-        set: { name, value },
-      })
-      .returning();
-
-    if (!split) throw new Error("Failed to upsert split");
-    await appendSplitHistorySnapshot(tx, userId);
-    return split;
-  });
-}
-
-export async function getSplitsByUserId(userId: string) {
-  try {
-    const result = await db.query.splits.findMany({
-      where: eq(splits.userId, userId),
-    });
-    return result;
-  } catch (error) {
-    console.error("Error getting splits by userId:", error);
-    throw error;
-  }
-}
-
-export async function getCorrectionHistoryByUserId(userId: string, limit = 25) {
-  try {
-    const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
-
-    return await db
-      .select({
-        id: splitHistory.id,
-        userId: splitHistory.userId,
-        effectiveFrom: splitHistory.effectiveFrom,
-        totalSplitPct: splitHistory.totalSplitPct,
-        breakdownJson: splitHistory.breakdownJson,
-        source: splitHistory.source,
-        correctionBatchId: splitHistory.correctionBatchId,
-        reason: splitHistory.reason,
-        createdAt: splitHistory.createdAt,
-      })
-      .from(splitHistory)
-      .where(
-        and(eq(splitHistory.userId, userId), ne(splitHistory.source, "live")),
-      )
-      .orderBy(desc(splitHistory.effectiveFrom), desc(splitHistory.createdAt))
-      .limit(safeLimit);
-  } catch (error) {
-    console.error("Error getting correction history by userId:", error);
-    throw error;
-  }
-}
-
-export async function getSplitHistoryTimelineByUserId(userId: string) {
-  try {
-    return await db
-      .select({
-        id: splitHistory.id,
-        userId: splitHistory.userId,
-        effectiveFrom: splitHistory.effectiveFrom,
-        totalSplitPct: splitHistory.totalSplitPct,
-        breakdownJson: splitHistory.breakdownJson,
-        source: splitHistory.source,
-        correctionBatchId: splitHistory.correctionBatchId,
-        reason: splitHistory.reason,
-        createdAt: splitHistory.createdAt,
-      })
-      .from(splitHistory)
-      .where(eq(splitHistory.userId, userId))
-      .orderBy(desc(splitHistory.effectiveFrom), desc(splitHistory.createdAt));
-  } catch (error) {
-    console.error(
-      "Error getting full split history timeline by userId:",
-      error,
+  const currentTotal = Number(row?.total ?? 0);
+  if (currentTotal + value > MAX_TOTAL_SPLIT) {
+    throw new SplitServiceError(
+      "limit_exceeded",
+      `Total split percentage cannot exceed ${MAX_TOTAL_SPLIT}%`,
     );
-    throw error;
   }
 }
 
-export async function deleteSplitByName(userId: string, name: string) {
-  try {
-    return db.transaction(async (tx) => {
-      const deletedSplit = await tx
-        .delete(splits)
-        .where(and(eq(splits.userId, userId), eq(splits.name, name)))
-        .returning();
-
-      if (deletedSplit.length === 0) return null;
-
-      await appendSplitHistorySnapshot(tx, userId);
-      return deletedSplit;
-    });
-  } catch (error) {
-    console.error("Error deleting split by name:", error);
-    throw error;
+async function create(
+  splitCategoryId: string,
+  name: string,
+  value: number,
+  userId: string,
+) {
+  if (!name?.trim()) {
+    throw new SplitServiceError("validation", "name is required");
   }
+  if (!Number.isFinite(value) || value < 0) {
+    throw new SplitServiceError(
+      "validation",
+      "value must be a non-negative number",
+    );
+  }
+
+  await ensureCategoryOwnership(splitCategoryId, userId);
+  await assertSplitCap(splitCategoryId, value);
+
+  const result = await db
+    .insert(splits)
+    .values({ splitCategoryId, name: name.trim(), value })
+    .returning();
+  return result[0];
 }
 
-export async function deleteAllSplitsByUserId(userId: string) {
-  try {
-    return db.transaction(async (tx) => {
-      const deletedSplits = await tx
-        .delete(splits)
-        .where(eq(splits.userId, userId))
-        .returning();
+async function getAllByCategoryId(splitCategoryId: string, userId: string) {
+  await ensureCategoryOwnership(splitCategoryId, userId);
 
-      await appendSplitHistorySnapshot(tx, userId);
-      return deletedSplits;
-    });
-  } catch (error) {
-    console.error("Error deleting all splits by userId:", error);
-    throw error;
-  }
+  const splitRules = await db
+    .select()
+    .from(splits)
+    .where(eq(splits.splitCategoryId, splitCategoryId));
+  return splitRules;
 }
+
+async function getById(id: string, userId: string) {
+  return getSplitOwnedByUser(id, userId);
+}
+
+async function update(id: string, name: string, value: number, userId: string) {
+  if (!name?.trim()) {
+    throw new SplitServiceError("validation", "name is required");
+  }
+  if (!Number.isFinite(value) || value < 0) {
+    throw new SplitServiceError(
+      "validation",
+      "value must be a non-negative number",
+    );
+  }
+
+  const existing = await getSplitOwnedByUser(id, userId);
+  if (!existing) {
+    throw new SplitServiceError("not_found", "Split not found");
+  }
+
+  await assertSplitCap(existing.splitCategoryId, value, id);
+
+  const result = await db
+    .update(splits)
+    .set({ name: name.trim(), value })
+    .where(eq(splits.id, id))
+    .returning();
+  return result[0];
+}
+
+async function deleteById(id: string, userId: string) {
+  const existing = await getSplitOwnedByUser(id, userId);
+  if (!existing) {
+    throw new SplitServiceError("not_found", "Split not found");
+  }
+
+  const result = await db.delete(splits).where(eq(splits.id, id)).returning();
+  return result[0];
+}
+
+export default {
+  create,
+  getAllByCategoryId,
+  getById,
+  update,
+  deleteById,
+};

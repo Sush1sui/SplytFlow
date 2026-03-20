@@ -1,5 +1,6 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import {
+  AuthServiceError,
   me,
   refresh,
   signin,
@@ -13,12 +14,71 @@ import {
   SignInBody,
   SignUpBody,
 } from "./model";
-import { validateSignup } from "../../utils/auth";
 import { isSignedIn } from "../../plugins/isSignedIn";
 import { checkRateLimit } from "../../utils/rate-limit";
+import { getClientIp } from "../../utils/request";
 
 // 5 attempts per 15 minutes per IP for CPU-heavy auth endpoints
 const AUTH_RATE_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
+
+const signInBodySchema = t.Object({
+  email: t.String(),
+  password: t.String(),
+});
+
+const signUpBodySchema = t.Object({
+  firstName: t.String(),
+  lastName: t.String(),
+  email: t.String(),
+  password: t.String(),
+  confirmPassword: t.String(),
+});
+
+const refreshBodySchema = t.Object({
+  refreshToken: t.String(),
+});
+
+const logoutBodySchema = t.Object({
+  refreshToken: t.Optional(t.String()),
+});
+
+function authErrorStatus(error: unknown) {
+  if (!(error instanceof AuthServiceError)) {
+    return 500;
+  }
+
+  if (error.code === "invalid_input") {
+    return 400;
+  }
+
+  if (error.code === "invalid_credentials" || error.code === "unauthorized") {
+    return 401;
+  }
+
+  if (error.code === "conflict") {
+    return 409;
+  }
+
+  if (error.code === "not_found") {
+    return 404;
+  }
+
+  return 500;
+}
+
+function authErrorPayload(error: unknown) {
+  if (error instanceof AuthServiceError) {
+    if (error.details && error.details.length > 0) {
+      return { error: error.message, errors: error.details };
+    }
+
+    return { error: error.message };
+  }
+
+  return {
+    error: error instanceof Error ? error.message : "An unknown error occurred",
+  };
+}
 
 const auth = new Elysia({ prefix: "/auth" })
   /**
@@ -30,12 +90,11 @@ const auth = new Elysia({ prefix: "/auth" })
    * - 401: Invalid credentials
    * - 500: Server error
    */
-  .post("/signin", async ({ body, set, request }) => {
-    try {
-      const ip =
-        request.headers.get("x-forwarded-for") ??
-        request.headers.get("x-real-ip") ??
-        "unknown";
+  .post(
+    "/signin",
+    async ({ body, set, request }) => {
+      try {
+      const ip = getClientIp(request.headers);
       if (
         !checkRateLimit(
           `signin:${ip}`,
@@ -58,14 +117,15 @@ const auth = new Elysia({ prefix: "/auth" })
 
       set.status = 200;
       return result;
-    } catch (error) {
-      set.status = 500;
-      return {
-        error:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      };
-    }
-  })
+      } catch (error) {
+        set.status = authErrorStatus(error);
+        return authErrorPayload(error);
+      }
+    },
+    {
+      body: signInBodySchema,
+    },
+  )
 
   /**
    * POST /auth/signup
@@ -76,12 +136,11 @@ const auth = new Elysia({ prefix: "/auth" })
    * - 409: Email already in use
    * - 500: Server error
    */
-  .post("/signup", async ({ body, set, request }) => {
-    try {
-      const ip =
-        request.headers.get("x-forwarded-for") ??
-        request.headers.get("x-real-ip") ??
-        "unknown";
+  .post(
+    "/signup",
+    async ({ body, set, request }) => {
+      try {
+      const ip = getClientIp(request.headers);
       if (
         !checkRateLimit(
           `signup:${ip}`,
@@ -96,18 +155,6 @@ const auth = new Elysia({ prefix: "/auth" })
       const { firstName, lastName, email, password, confirmPassword } =
         body as SignUpBody;
 
-      const errors = validateSignup(
-        firstName,
-        lastName,
-        email,
-        password,
-        confirmPassword,
-      );
-      if (errors.length > 0) {
-        set.status = 400;
-        return { error: "Invalid signup data", errors };
-      }
-
       const result = await signup(
         firstName,
         lastName,
@@ -118,17 +165,15 @@ const auth = new Elysia({ prefix: "/auth" })
 
       set.status = 201;
       return result;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      if (message === "Email is already in use") {
-        set.status = 409;
-        return { error: message };
+      } catch (error) {
+        set.status = authErrorStatus(error);
+        return authErrorPayload(error);
       }
-      set.status = 500;
-      return { error: message };
-    }
-  })
+    },
+    {
+      body: signUpBodySchema,
+    },
+  )
 
   // ─── Semi-public Routes ──────────────────────────────────────────
   /**
@@ -139,9 +184,11 @@ const auth = new Elysia({ prefix: "/auth" })
    * - 400: Missing refresh token
    * - 401: Invalid refresh token
    */
-  .post("/refresh", async ({ body, set }) => {
-    try {
-      const { refreshToken } = body as RefreshTokenBody;
+  .post(
+    "/refresh",
+    async ({ body, set }) => {
+      try {
+      const { refreshToken } = body;
 
       if (!refreshToken) {
         set.status = 400;
@@ -149,21 +196,17 @@ const auth = new Elysia({ prefix: "/auth" })
       }
 
       const result = await refresh(refreshToken);
-
-      if (!result || "error" in result) {
-        set.status = 401;
-        return { error: "Invalid refresh token" };
-      }
-
       set.status = 200;
       return result;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      set.status = 401;
-      return { error: message };
-    }
-  })
+      } catch (error) {
+        set.status = authErrorStatus(error);
+        return authErrorPayload(error);
+      }
+    },
+    {
+      body: refreshBodySchema,
+    },
+  )
 
   // ─── Protected Routes ───────────────────────────────────────────
   .guard({}, (app) =>
@@ -179,12 +222,8 @@ const auth = new Elysia({ prefix: "/auth" })
           set.status = 200;
           return result;
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred";
-          set.status = 400;
-          return { error: message };
+          set.status = authErrorStatus(error);
+          return authErrorPayload(error);
         }
       })
 
@@ -195,21 +234,23 @@ const auth = new Elysia({ prefix: "/auth" })
        * Possible errors:
        * - 400: Invalid refresh token (if provided)
        */
-      .post("/logout", async ({ userId, jti, tokenExp, body, set }) => {
-        try {
-          const refreshToken = (body as LogoutSingleBody)?.refreshToken;
+      .post(
+        "/logout",
+        async ({ userId, jti, tokenExp, body, set }) => {
+          try {
+          const refreshToken = body.refreshToken;
           await logoutSingle(jti, userId, tokenExp, refreshToken);
           set.status = 200;
           return { message: "Logged out successfully" };
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred";
-          set.status = 400;
-          return { error: message };
-        }
-      })
+          } catch (error) {
+            set.status = authErrorStatus(error);
+            return authErrorPayload(error);
+          }
+        },
+        {
+          body: logoutBodySchema,
+        },
+      )
 
       /**
        * POST /auth/logout-all
@@ -223,12 +264,8 @@ const auth = new Elysia({ prefix: "/auth" })
           set.status = 200;
           return { message: "Logged out from all devices" };
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred";
-          set.status = 400;
-          return { error: message };
+          set.status = authErrorStatus(error);
+          return authErrorPayload(error);
         }
       }),
   );

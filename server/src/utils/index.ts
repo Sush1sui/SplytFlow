@@ -25,3 +25,22 @@ export function capitalizeWords(str: string) {
     .map((word) => capitalizeFirstLetter(word))
     .join(" ");
 }
+
+export function getUtcMidnight(date = new Date()) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+export function toUtcDay(date?: Date | string) {
+  if (typeof date === "string") {
+    // KISS contract: accept date-only strings from clients.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error("Invalid date format. Use YYYY-MM-DD");
+    }
+
+    return new Date(`${date}T00:00:00.000Z`);
+  }
+
+  return getUtcMidnight(date ?? new Date());
+}

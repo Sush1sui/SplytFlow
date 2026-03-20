@@ -7,6 +7,7 @@ import { runJobs } from "./utils";
 // routes
 import auth from "./modules/auth/index";
 import otp from "./modules/otp/index";
+import splitCategory from "./modules/split_category/index";
 import split from "./modules/split/index";
 import sale from "./modules/sale/index";
 
@@ -16,6 +17,7 @@ const app = new Elysia()
   .get("/", () => "Splytflow API is running!")
   .use(auth)
   .use(otp)
+  .use(splitCategory)
   .use(split)
   .use(sale)
   .listen(process.env.PORT || 3001);

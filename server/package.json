@@ -2,7 +2,10 @@
   "name": "server-v2",
   "version": "1.0.50",
   "scripts": {
-    "test:sale-split": "bun test src/tests/sale-split.test.ts --timeout 30000",
+    "test": "bun run test:unit",
+    "test:unit": "bun test src/tests/unit/**/*.test.ts --timeout 10000",
+    "test:unit:endpoints": "bun test src/tests/unit/endpoints/**/*.test.ts --timeout 10000",
+    "test:unit:auth": "bun test src/tests/unit/auth/**/*.test.ts --timeout 10000",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -12,11 +15,11 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@types/nodemailer": "^7.0.11",
     "drizzle-orm": "^0.45.1",
     "elysia": "latest",
     "jose": "^6.1.3",
-    "nodemailer": "^8.0.1"
+    "nodemailer": "^8.0.1",
+    "pg": "^8.13.3"
   },
   "devDependencies": {
     "bun-types": "latest",

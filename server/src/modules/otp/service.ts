@@ -13,15 +13,43 @@ import {
   withDbRetry,
 } from "../../utils/db/retry";
 
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_IDEMPOTENCY_WINDOW_MS = 45 * 1000;
+
 export async function create(email: string, purpose = "signup") {
   try {
+    const now = new Date();
+
     if (!validateEmail(email) || !purpose)
       throw new Error("Invalid email format or purpose");
     if (!validatePurpose(purpose)) throw new Error("Invalid purpose");
 
+    const [existing] = await db
+      .select()
+      .from(otps)
+      .where(
+        and(
+          eq(otps.email, email),
+          eq(otps.purpose, purpose),
+          gt(otps.expiresAt, now),
+        ),
+      )
+      .limit(1);
+
+    if (
+      existing &&
+      existing.expiresAt.getTime() - now.getTime() >=
+        OTP_TTL_MS - OTP_IDEMPOTENCY_WINDOW_MS
+    ) {
+      return {
+        ...existing,
+        code: undefined,
+      };
+    }
+
     // Generate a cryptographically strong 6‑digit OTP
     const code = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MS); // OTP expires in 5 minutes
 
     const [otp] = await db
       .insert(otps)
@@ -94,10 +122,6 @@ export async function verify(email: string, code: string, purpose = "signup") {
       );
 
     if (!otp) throw new Error("OTP not found or expired");
-
-    // SQL condition `gt(otps.expiresAt, now)` already guarantees the row is
-    // not expired, so the check below is unnecessary.
-    if (otp.code !== code) throw new Error("Invalid OTP code");
 
     // OTP is valid, delete it to prevent reuse
     await db.delete(otps).where(eq(otps.id, otp.id));
