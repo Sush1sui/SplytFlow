@@ -1,4 +1,3 @@
-import { API_BASE_URL } from "@/lib/api";
 import { Link } from "expo-router";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
