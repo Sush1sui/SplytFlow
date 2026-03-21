@@ -22,7 +22,7 @@ export type SaleIdParams = {
   id: string;
 };
 
-export const saleSchemas = {
+export const saleSchema = {
   saleIdParams: t.Object({
     id: t.String(),
   }),

@@ -9,7 +9,7 @@ async function upsert(userId: string, amount: number, date?: Date | string) {
   try {
     const createdAt = toUtcDay(date);
 
-    // Upsert is additive: amount is treated as a delta.
+    // amount is treated as a delta.
     if (Math.abs(amount) <= ZERO_EPSILON) {
       return getByUserId(userId, createdAt);
     }
@@ -43,15 +43,20 @@ async function upsert(userId: string, amount: number, date?: Date | string) {
   }
 }
 
-async function update(userId: string, amount: number, date?: Date | string) {
+async function update(
+  id: string,
+  userId: string,
+  amount: number,
+  date?: Date | string,
+) {
   try {
     const createdAt = toUtcDay(date);
 
-    // Update is replacement: amount is the final value for the day.
+    // amount is the final value for the day.
     if (Math.abs(amount) <= ZERO_EPSILON) {
       await db
         .delete(sales)
-        .where(and(eq(sales.userId, userId), eq(sales.createdAt, createdAt)));
+        .where(and(eq(sales.id, id), eq(sales.userId, userId)));
       return null;
     }
 
@@ -59,7 +64,7 @@ async function update(userId: string, amount: number, date?: Date | string) {
       .insert(sales)
       .values({ userId, amount, createdAt })
       .onConflictDoUpdate({
-        target: [sales.userId, sales.createdAt],
+        target: [sales.id],
         set: {
           amount,
         },
@@ -70,6 +75,16 @@ async function update(userId: string, amount: number, date?: Date | string) {
   } catch (error) {
     console.error("Error updating sale:", error);
     throw new Error("An error occurred while updating the sale");
+  }
+}
+
+async function getById(id: string) {
+  try {
+    const result = await db.select().from(sales).where(eq(sales.id, id));
+    return result[0] ?? null;
+  } catch (error) {
+    console.error("Error fetching sale by ID:", error);
+    throw new Error("An error occurred while fetching the sale");
   }
 }
 
@@ -135,6 +150,7 @@ async function deleteByUserId(id: string, userId: string) {
 export default {
   upsert,
   update,
+  getById,
   getByUserId,
   getByUserIdWithRange,
   deleteByUserId,

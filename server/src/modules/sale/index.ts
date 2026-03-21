@@ -1,6 +1,6 @@
 import Elysia from "elysia";
 import saleService from "./service";
-import { saleSchemas } from "./model";
+import { saleSchema } from "./model";
 
 const sales = new Elysia({ prefix: "/sales" })
   /**
@@ -33,9 +33,35 @@ const sales = new Elysia({ prefix: "/sales" })
       }
     },
     {
-      query: saleSchemas.getSaleByUserDateQuery,
+      query: saleSchema.getSaleByUserDateQuery,
     },
   )
+  /**
+   * GET /sales/:id
+   * Request params: { id: string }
+   * Response: 200 OK with sale data for the given ID, or appropriate error statuses
+   * Possible errors:
+   * - 400 Bad Request if id is missing or invalid
+   * - 404 Not Found if no sale is found for the given ID
+   * - 500 Internal Server Error for any other issues
+   */
+  .get("/:id", async ({ params, set }) => {
+    try {
+      const { id } = params;
+
+      const sale = await saleService.getById(id);
+      if (!sale) {
+        set.status = 404;
+        return { error: "No sale found for the given ID" };
+      }
+      set.status = 200;
+      return sale;
+    } catch (error) {
+      console.error("Error fetching sale by ID:", error);
+      set.status = 500;
+      return { error: "An error occurred while fetching the sale by ID" };
+    }
+  })
   /**
    * GET /sales/range
    * Request query: { userId: string, startDate: string, endDate: string }
@@ -73,7 +99,7 @@ const sales = new Elysia({ prefix: "/sales" })
       }
     },
     {
-      query: saleSchemas.getSalesByRangeQuery,
+      query: saleSchema.getSalesByRangeQuery,
     },
   )
   /**
@@ -107,7 +133,7 @@ const sales = new Elysia({ prefix: "/sales" })
       }
     },
     {
-      body: saleSchemas.createOrUpdateSaleBody,
+      body: saleSchema.createOrUpdateSaleBody,
     },
   )
   /**
@@ -120,12 +146,13 @@ const sales = new Elysia({ prefix: "/sales" })
    * - 500 Internal Server Error for any other issues
    */
   .put(
-    "/",
-    async ({ body, set }) => {
+    "/:id",
+    async ({ params, body, set }) => {
       try {
+        const { id } = params;
         const { userId, amount, date } = body;
 
-        const sale = await saleService.update(userId, amount, date);
+        const sale = await saleService.update(id, userId, amount, date);
 
         if (!sale) {
           set.status = 404;
@@ -141,7 +168,8 @@ const sales = new Elysia({ prefix: "/sales" })
       }
     },
     {
-      body: saleSchemas.createOrUpdateSaleBody,
+      body: saleSchema.createOrUpdateSaleBody,
+      params: saleSchema.saleIdParams,
     },
   )
   /**
@@ -175,8 +203,8 @@ const sales = new Elysia({ prefix: "/sales" })
       }
     },
     {
-      params: saleSchemas.saleIdParams,
-      body: saleSchemas.deleteSaleBody,
+      params: saleSchema.saleIdParams,
+      body: saleSchema.deleteSaleBody,
     },
   );
 

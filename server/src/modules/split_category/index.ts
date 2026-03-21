@@ -1,28 +1,6 @@
 import Elysia, { t } from "elysia";
 import splitService from "./service";
-import {
-  CreateOrUpdateSplitCategoryBody,
-  DeleteSplitCategoryBody,
-  GetSplitCategoriesQuery,
-  GetSplitCategoryByIdQuery,
-} from "./model";
-
-const splitCategoryIdParamsSchema = t.Object({
-  id: t.String(),
-});
-
-const splitCategoryUserQuerySchema = t.Object({
-  userId: t.String(),
-});
-
-const splitCategoryUpsertBodySchema = t.Object({
-  userId: t.String(),
-  name: t.String(),
-});
-
-const splitCategoryDeleteBodySchema = t.Object({
-  userId: t.String(),
-});
+import { splitCategorySchema } from "./model";
 
 const splitCategory = new Elysia({ prefix: "/splits/categories" })
   /**
@@ -56,7 +34,7 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
       }
     },
     {
-      query: splitCategoryUserQuerySchema,
+      query: splitCategorySchema.splitCategoryUserQuery,
     },
   )
   /**
@@ -100,8 +78,8 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
       }
     },
     {
-      params: splitCategoryIdParamsSchema,
-      query: splitCategoryUserQuerySchema,
+      params: splitCategorySchema.splitCategoryIdParams,
+      query: splitCategorySchema.splitCategoryUserQuery,
     },
   )
   /**
@@ -139,7 +117,7 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
       }
     },
     {
-      body: splitCategoryUpsertBodySchema,
+      body: splitCategorySchema.splitCategoryUpsertBody,
     },
   )
   /**
@@ -180,8 +158,8 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
       }
     },
     {
-      params: splitCategoryIdParamsSchema,
-      body: splitCategoryUpsertBodySchema,
+      params: splitCategorySchema.splitCategoryIdParams,
+      body: splitCategorySchema.splitCategoryUpsertBody,
     },
   )
   /**
@@ -213,8 +191,8 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
       }
     },
     {
-      params: splitCategoryIdParamsSchema,
-      body: splitCategoryDeleteBodySchema,
+      params: splitCategorySchema.splitCategoryIdParams,
+      body: splitCategorySchema.splitCategoryDeleteBody,
     },
   );
 

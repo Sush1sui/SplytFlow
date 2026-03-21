@@ -1,3 +1,6 @@
+import { t } from "elysia";
+import { AuthServiceError } from "./errors";
+
 export type AppVariables = {
   userId: string;
   userEmail: string;
@@ -99,3 +102,61 @@ export type ConsumedRefreshTokenRecord = {
   userId: string;
   expiresAt: Date;
 };
+
+export const authSchemas = {
+  signInBody: t.Object({
+    email: t.String(),
+    password: t.String(),
+  }),
+  signUpBody: t.Object({
+    firstName: t.String(),
+    lastName: t.String(),
+    email: t.String(),
+    password: t.String(),
+    confirmPassword: t.String(),
+  }),
+  refreshBody: t.Object({
+    refreshToken: t.String(),
+  }),
+  logoutBody: t.Object({
+    refreshToken: t.Optional(t.String()),
+  }),
+};
+
+export function authErrorPayload(error: unknown) {
+  if (error instanceof AuthServiceError) {
+    if (error.details && error.details.length > 0) {
+      return { error: error.message, errors: error.details };
+    }
+
+    return { error: error.message };
+  }
+
+  return {
+    error: error instanceof Error ? error.message : "An unknown error occurred",
+  };
+}
+
+export function authErrorStatus(error: unknown) {
+  if (!(error instanceof AuthServiceError)) {
+    return 500;
+  }
+
+  if (error.code === "invalid_input") {
+    return 400;
+  }
+
+  if (error.code === "invalid_credentials" || error.code === "unauthorized") {
+    return 401;
+  }
+
+  if (error.code === "conflict") {
+    return 409;
+  }
+
+  if (error.code === "not_found") {
+    return 404;
+  }
+
+  return 500;
+}

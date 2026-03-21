@@ -1,62 +1,10 @@
-import Elysia, { t } from "elysia";
-import {
-  CreateSplitBody,
-  DeleteSplitQuery,
-  GetAllSplitsQuery,
-  GetSplitByIdQuery,
-  SplitIdParams,
-  UpdateSplitBody,
-} from "./model";
+import Elysia from "elysia";
 import splitService from "./service";
-import { SplitServiceError } from "./service";
-
-function splitErrorStatus(error: unknown) {
-  if (error instanceof SplitServiceError) {
-    if (error.code === "validation" || error.code === "limit_exceeded") {
-      return 400;
-    }
-
-    if (error.code === "not_found") {
-      return 404;
-    }
-  }
-
-  return 500;
-}
-
-const splitIdParamsSchema = t.Object({
-  id: t.String(),
-});
-
-const getAllSplitsQuerySchema = t.Object({
-  splitCategoryId: t.String(),
-  userId: t.String(),
-});
-
-const getSplitByIdQuerySchema = t.Object({
-  userId: t.String(),
-});
-
-const createSplitBodySchema = t.Object({
-  userId: t.String(),
-  name: t.String(),
-  value: t.Number(),
-  splitCategoryId: t.String(),
-});
-
-const updateSplitBodySchema = t.Object({
-  userId: t.String(),
-  name: t.String(),
-  value: t.Number(),
-});
-
-const deleteSplitQuerySchema = t.Object({
-  userId: t.String(),
-});
+import { splitSchema, splitErrorStatus } from "./model";
 
 const split = new Elysia({ prefix: "/splits" })
   /**
-   * Get all splits by category ID
+   * GET /splits
    * Request query: { splitCategoryId: string, userId: string }
    * Response: 200 OK with list of splits for the category, or appropriate error statuses
    * Possible errors:
@@ -87,7 +35,7 @@ const split = new Elysia({ prefix: "/splits" })
       }
     },
     {
-      query: getAllSplitsQuerySchema,
+      query: splitSchema.getAllSplitsQuery,
     },
   )
   /**
@@ -125,10 +73,19 @@ const split = new Elysia({ prefix: "/splits" })
       }
     },
     {
-      params: splitIdParamsSchema,
-      query: getSplitByIdQuerySchema,
+      params: splitSchema.splitIdParams,
+      query: splitSchema.getSplitByIdQuery,
     },
   )
+  /**
+   * POST /splits
+   * Request body: { name: string, value: number, splitCategoryId: string, userId: string }
+   * Response: 201 Created with the new split details, or appropriate error statuses
+   * Possible errors:
+   * - 400 Bad Request if name/value/splitCategoryId/userId are missing or invalid
+   * - 404 Not Found if the split category is not found for the given splitCategoryId
+   * - 500 Internal Server Error for any other issues
+   */
   .post(
     "/",
     async ({ body, set }) => {
@@ -163,7 +120,7 @@ const split = new Elysia({ prefix: "/splits" })
       }
     },
     {
-      body: createSplitBodySchema,
+      body: splitSchema.createSplitBody,
     },
   )
   /**
@@ -210,8 +167,8 @@ const split = new Elysia({ prefix: "/splits" })
       }
     },
     {
-      params: splitIdParamsSchema,
-      body: updateSplitBodySchema,
+      params: splitSchema.splitIdParams,
+      body: splitSchema.updateSplitBody,
     },
   )
   /**
@@ -248,8 +205,8 @@ const split = new Elysia({ prefix: "/splits" })
       }
     },
     {
-      params: splitIdParamsSchema,
-      query: deleteSplitQuerySchema,
+      params: splitSchema.splitIdParams,
+      query: splitSchema.deleteSplitQuery,
     },
   );
 

@@ -1,6 +1,5 @@
 import { Elysia, t } from "elysia";
 import {
-  AuthServiceError,
   me,
   refresh,
   signin,
@@ -9,10 +8,11 @@ import {
   logoutAll,
 } from "./service";
 import {
-  LogoutSingleBody,
-  RefreshTokenBody,
   SignInBody,
   SignUpBody,
+  authSchemas,
+  authErrorPayload,
+  authErrorStatus,
 } from "./model";
 import { isSignedIn } from "../../plugins/isSignedIn";
 import { checkRateLimit } from "../../utils/rate-limit";
@@ -20,65 +20,6 @@ import { getClientIp } from "../../utils/request";
 
 // 5 attempts per 15 minutes per IP for CPU-heavy auth endpoints
 const AUTH_RATE_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
-
-const signInBodySchema = t.Object({
-  email: t.String(),
-  password: t.String(),
-});
-
-const signUpBodySchema = t.Object({
-  firstName: t.String(),
-  lastName: t.String(),
-  email: t.String(),
-  password: t.String(),
-  confirmPassword: t.String(),
-});
-
-const refreshBodySchema = t.Object({
-  refreshToken: t.String(),
-});
-
-const logoutBodySchema = t.Object({
-  refreshToken: t.Optional(t.String()),
-});
-
-function authErrorStatus(error: unknown) {
-  if (!(error instanceof AuthServiceError)) {
-    return 500;
-  }
-
-  if (error.code === "invalid_input") {
-    return 400;
-  }
-
-  if (error.code === "invalid_credentials" || error.code === "unauthorized") {
-    return 401;
-  }
-
-  if (error.code === "conflict") {
-    return 409;
-  }
-
-  if (error.code === "not_found") {
-    return 404;
-  }
-
-  return 500;
-}
-
-function authErrorPayload(error: unknown) {
-  if (error instanceof AuthServiceError) {
-    if (error.details && error.details.length > 0) {
-      return { error: error.message, errors: error.details };
-    }
-
-    return { error: error.message };
-  }
-
-  return {
-    error: error instanceof Error ? error.message : "An unknown error occurred",
-  };
-}
 
 const auth = new Elysia({ prefix: "/auth" })
   /**
@@ -123,7 +64,7 @@ const auth = new Elysia({ prefix: "/auth" })
       }
     },
     {
-      body: signInBodySchema,
+      body: authSchemas.signInBody,
     },
   )
 
@@ -171,7 +112,7 @@ const auth = new Elysia({ prefix: "/auth" })
       }
     },
     {
-      body: signUpBodySchema,
+      body: authSchemas.signUpBody,
     },
   )
 
@@ -204,7 +145,7 @@ const auth = new Elysia({ prefix: "/auth" })
       }
     },
     {
-      body: refreshBodySchema,
+      body: authSchemas.refreshBody,
     },
   )
 
@@ -248,7 +189,7 @@ const auth = new Elysia({ prefix: "/auth" })
           }
         },
         {
-          body: logoutBodySchema,
+          body: authSchemas.logoutBody,
         },
       )
 
