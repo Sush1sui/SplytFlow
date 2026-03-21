@@ -1,0 +1,17 @@
+import { Stack } from "expo-router";
+
+export default function AuthLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "fade_from_bottom",
+        animationDuration: 240,
+        gestureEnabled: true,
+      }}
+    >
+      <Stack.Screen name="signin" />
+      <Stack.Screen name="signup" />
+    </Stack>
+  );
+}
