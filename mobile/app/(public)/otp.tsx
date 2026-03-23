@@ -132,7 +132,7 @@ export default function Otp() {
           return;
         }
 
-        router.replace("/(tabs)/home");
+        router.replace("/(tabs)/(home)");
       }
     } catch (error) {
       showToast({

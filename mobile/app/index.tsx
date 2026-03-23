@@ -7,7 +7,7 @@ export default function Index() {
 
   if (loading) return <Loading message="Checking session..." />;
 
-  if (user) return <Redirect href="/(tabs)/home" />;
+  if (user) return <Redirect href="/(tabs)/(home)" />;
 
   return <Redirect href="/(auth)/signin" />;
 }

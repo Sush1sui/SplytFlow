@@ -54,7 +54,7 @@ export default function SignIn() {
         return;
       }
 
-      router.replace("/(tabs)/home");
+      router.replace("/(tabs)/(home)");
       setLoading(false);
     } catch (error) {
       console.error("Error during sign-in:", error);
