@@ -23,11 +23,11 @@ export default function HomeScreen() {
           style={{ alignItems: "center", justifyContent: "space-between" }}
         >
           <YStack>
-            <Paragraph style={{ color: "#6b7280", fontSize: 16 }}>
+            <Paragraph style={{ color: "#6b7280", fontSize: 14 }}>
               Good morning,
             </Paragraph>
             <Paragraph
-              style={{ color: "#0f172a", fontSize: 26, fontWeight: "800" }}
+              style={{ color: "#0f172a", fontSize: 22, fontWeight: "800" }}
             >
               John Doe
             </Paragraph>
@@ -124,7 +124,7 @@ export default function HomeScreen() {
 
         <YStack style={{ marginTop: 24 }} gap="$2">
           <Paragraph
-            style={{ color: "#0f172a", fontSize: 22, fontWeight: "800" }}
+            style={{ color: "#0f172a", fontSize: 20, fontWeight: "800" }}
           >
             Quick Add Sale
           </Paragraph>
@@ -166,7 +166,7 @@ export default function HomeScreen() {
             style={{ justifyContent: "space-between", alignItems: "center" }}
           >
             <Paragraph
-              style={{ color: "#0f172a", fontSize: 22, fontWeight: "800" }}
+              style={{ color: "#0f172a", fontSize: 20, fontWeight: "800" }}
             >
               Recent Logs
             </Paragraph>
@@ -217,7 +217,7 @@ export default function HomeScreen() {
               </YStack>
 
               <Paragraph
-                style={{ color: "#0f172a", fontWeight: "800", fontSize: 22 }}
+                style={{ color: "#0f172a", fontWeight: "800", fontSize: 16 }}
               >
                 {log.amount}
               </Paragraph>

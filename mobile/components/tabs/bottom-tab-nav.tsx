@@ -1,5 +1,5 @@
 import { Link, usePathname, useSegments, type Href } from "expo-router";
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Paragraph, XStack, YStack } from "tamagui";
@@ -23,7 +23,7 @@ const TAB_ITEMS: TabItem[] = [
   },
   {
     label: "Sales",
-    icon: "chart-timeline-variant",
+    icon: "chart-line-variant",
     route: "/(tabs)/(sales)" as Href,
     segment: "(sales)",
   },
@@ -41,7 +41,7 @@ const TAB_ITEMS: TabItem[] = [
   },
 ];
 
-export default function BottomTabNav() {
+function BottomTabNav() {
   const pathname = usePathname();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -50,18 +50,21 @@ export default function BottomTabNav() {
     return TAB_ITEMS.some((item) => item.segment === segment);
   }) as TabSegment | undefined;
 
-  const isItemActive = (item: TabItem) => {
-    if (activeGroup) {
-      return activeGroup === item.segment;
-    }
+  const isItemActive = useMemo(
+    () => (item: TabItem) => {
+      if (activeGroup) {
+        return activeGroup === item.segment;
+      }
 
-    // Fallback for any non-grouped path format.
-    if (item.segment === "(home)")
-      return pathname.includes("/home") || pathname === "/";
-    if (item.segment === "(sales)") return pathname.includes("/sales");
-    if (item.segment === "(splits)") return pathname.includes("/splits");
-    return pathname.includes("/settings");
-  };
+      // Fallback for any non-grouped path format.
+      if (item.segment === "(home)")
+        return pathname.includes("/home") || pathname === "/";
+      if (item.segment === "(sales)") return pathname.includes("/sales");
+      if (item.segment === "(splits)") return pathname.includes("/splits");
+      return pathname.includes("/settings");
+    },
+    [activeGroup, pathname],
+  );
 
   return (
     <XStack
@@ -72,9 +75,9 @@ export default function BottomTabNav() {
         bottom: 0,
         zIndex: 100,
         borderTopWidth: 1,
-        borderTopColor: "#e3e7ef",
-        paddingTop: 5,
-        paddingBottom: Math.max(insets.bottom, 6),
+        borderTopColor: "#d8deea",
+        paddingTop: 6,
+        paddingBottom: Math.max(insets.bottom, 7),
         paddingHorizontal: 8,
         backgroundColor: "#ffffff",
       }}
@@ -87,39 +90,45 @@ export default function BottomTabNav() {
             <Pressable style={{ flex: 1 }}>
               <YStack
                 style={{
+                  width: "100%",
+                  maxWidth: 82,
+                  alignSelf: "center",
                   alignItems: "center",
                   justifyContent: "center",
-                  marginHorizontal: 4,
-                  paddingVertical: 4,
-                  borderRadius: 10,
-                  backgroundColor: active ? "#e8eeff" : "transparent",
-                  borderWidth: active ? 1 : 0,
-                  borderColor: active ? "#7a72f1" : "transparent",
+                  marginHorizontal: 2,
+                  paddingTop: 6,
+                  paddingBottom: 5,
+                  minHeight: 58,
                 }}
-                gap="$1"
+                gap={2}
               >
                 <MaterialCommunityIcons
                   name={item.icon}
-                  size={active ? 20 : 18}
-                  color={active ? "#2c5dd8" : "#9aa5b5"}
+                  size={20}
+                  color={active ? "#4b57ef" : "#9ca6b6"}
                 />
                 <Paragraph
                   style={{
-                    color: active ? "#2c5dd8" : "#9aa5b5",
-                    fontSize: active ? 11 : 10,
-                    fontWeight: active ? "800" : "500",
+                    color: active ? "#4b57ef" : "#8f99aa",
+                    fontSize: 12,
+                    fontWeight: active ? "700" : "500",
                   }}
                 >
                   {item.label}
                 </Paragraph>
-                <YStack
-                  style={{
-                    width: active ? 14 : 0,
-                    height: 2,
-                    borderRadius: 999,
-                    backgroundColor: active ? "#2c5dd8" : "transparent",
-                  }}
-                />
+                {active ? (
+                  <YStack
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      marginTop: 1,
+                      backgroundColor: "#4b57ef",
+                    }}
+                  />
+                ) : (
+                  <YStack style={{ height: 7, marginTop: 1 }} />
+                )}
               </YStack>
             </Pressable>
           </Link>
@@ -128,3 +137,5 @@ export default function BottomTabNav() {
     </XStack>
   );
 }
+
+export default memo(BottomTabNav);
