@@ -1,17 +1,35 @@
 import { db } from "../../db";
 import { sales } from "../../db/schema";
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
-import { toUtcDay } from "../../utils";
+import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
+import {
+  getDateValidationMessage,
+  getLocalDateStringInTimeZone,
+  toUtcFromLocalDateAndTimeZone,
+} from "../../utils";
 
 const ZERO_EPSILON = 1e-9;
 
-async function upsert(userId: string, amount: number, date?: Date | string) {
+function toIsoDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function shiftDays(localDate: string, days: number) {
+  const shifted = new Date(`${localDate}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return toIsoDateOnly(shifted);
+}
+
+async function upsert(userId: string, amount: number, timeZone: string) {
   try {
-    const createdAt = toUtcDay(date);
+    const effectiveLocalDate = getLocalDateStringInTimeZone(timeZone);
+    const createdAt = toUtcFromLocalDateAndTimeZone(
+      effectiveLocalDate,
+      timeZone,
+    );
 
     // amount is treated as a delta.
     if (Math.abs(amount) <= ZERO_EPSILON) {
-      return getByUserId(userId, createdAt);
+      return getByUserId(userId, effectiveLocalDate, timeZone);
     }
 
     const result = await db
@@ -38,21 +56,17 @@ async function upsert(userId: string, amount: number, date?: Date | string) {
 
     return sale;
   } catch (error) {
+    if (getDateValidationMessage(error)) {
+      throw error;
+    }
+
     console.error("Error creating sale:", error);
     throw new Error("An error occurred while creating the sale");
   }
 }
 
-async function update(
-  id: string,
-  userId: string,
-  amount: number,
-  date?: Date | string,
-) {
+async function update(id: string, userId: string, amount: number) {
   try {
-    const createdAt = toUtcDay(date);
-
-    // amount is the final value for the day.
     if (Math.abs(amount) <= ZERO_EPSILON) {
       await db
         .delete(sales)
@@ -61,18 +75,17 @@ async function update(
     }
 
     const result = await db
-      .insert(sales)
-      .values({ userId, amount, createdAt })
-      .onConflictDoUpdate({
-        target: [sales.id],
-        set: {
-          amount,
-        },
-      })
+      .update(sales)
+      .set({ amount })
+      .where(and(eq(sales.id, id), eq(sales.userId, userId)))
       .returning();
 
     return result[0] ?? null;
   } catch (error) {
+    if (getDateValidationMessage(error)) {
+      throw error;
+    }
+
     console.error("Error updating sale:", error);
     throw new Error("An error occurred while updating the sale");
   }
@@ -88,9 +101,13 @@ async function getById(id: string) {
   }
 }
 
-async function getByUserId(userId: string, date: Date | string) {
+async function getByUserId(
+  userId: string,
+  localDate: string,
+  timeZone: string,
+) {
   try {
-    const createdAt = toUtcDay(date);
+    const createdAt = toUtcFromLocalDateAndTimeZone(localDate, timeZone);
 
     const result = await db
       .select()
@@ -99,6 +116,10 @@ async function getByUserId(userId: string, date: Date | string) {
 
     return result[0] ?? null;
   } catch (error) {
+    if (getDateValidationMessage(error)) {
+      throw error;
+    }
+
     console.error("Error fetching sale:", error);
     throw new Error("An error occurred while fetching the sale");
   }
@@ -106,15 +127,20 @@ async function getByUserId(userId: string, date: Date | string) {
 
 async function getByUserIdWithRange(
   userId: string,
-  startDate: Date | string,
-  endDate: Date | string,
+  startLocalDate: string,
+  endLocalDate: string,
+  timeZone: string,
 ) {
   try {
-    const start = toUtcDay(startDate);
-    const end = toUtcDay(endDate);
+    const start = toUtcFromLocalDateAndTimeZone(startLocalDate, timeZone);
+    const endExclusiveLocalDate = shiftDays(endLocalDate, 1);
+    const endExclusive = toUtcFromLocalDateAndTimeZone(
+      endExclusiveLocalDate,
+      timeZone,
+    );
 
-    if (start > end) {
-      throw new Error("startDate cannot be after endDate");
+    if (start >= endExclusive) {
+      throw new Error("startLocalDate cannot be after endLocalDate");
     }
 
     return await db
@@ -124,13 +150,30 @@ async function getByUserIdWithRange(
         and(
           eq(sales.userId, userId),
           gte(sales.createdAt, start),
-          lte(sales.createdAt, end),
+          lt(sales.createdAt, endExclusive),
         ),
       )
       .orderBy(asc(sales.createdAt));
   } catch (error) {
+    if (getDateValidationMessage(error)) {
+      throw error;
+    }
+
     console.error("Error fetching sales by range:", error);
     throw new Error("An error occurred while fetching sales by range");
+  }
+}
+
+async function getAllByUserId(userId: string) {
+  try {
+    return await db
+      .select()
+      .from(sales)
+      .where(eq(sales.userId, userId))
+      .orderBy(asc(sales.createdAt));
+  } catch (error) {
+    console.error("Error fetching sales:", error);
+    throw new Error("An error occurred while fetching sales");
   }
 }
 
@@ -151,6 +194,7 @@ export default {
   upsert,
   update,
   getById,
+  getAllByUserId,
   getByUserId,
   getByUserIdWithRange,
   deleteByUserId,

@@ -1,17 +1,25 @@
 import { t } from "elysia";
 
-export type GetSaleByUserDateQuery = { userId: string; date: Date | string };
+export type GetSalesQuery = {
+  userId: string;
+};
 
 export type GetSalesByRangeQuery = {
   userId: string;
-  startDate: Date | string;
-  endDate: Date | string;
+  startLocalDate: string;
+  endLocalDate: string;
+  timeZone: string;
 };
 
 export type CreateSaleBody = {
   userId: string;
   amount: number;
-  date?: Date | string;
+  timeZone: string;
+};
+
+export type UpdateSaleBody = {
+  userId: string;
+  amount: number;
 };
 
 export type DeleteSaleBody = {
@@ -26,19 +34,23 @@ export const saleSchema = {
   saleIdParams: t.Object({
     id: t.String(),
   }),
-  getSaleByUserDateQuery: t.Object({
+  getSalesQuery: t.Object({
     userId: t.String(),
-    date: t.String(),
   }),
   getSalesByRangeQuery: t.Object({
     userId: t.String(),
-    startDate: t.String(),
-    endDate: t.String(),
+    startLocalDate: t.String(),
+    endLocalDate: t.String(),
+    timeZone: t.String(),
   }),
-  createOrUpdateSaleBody: t.Object({
+  createSaleBody: t.Object({
     userId: t.String(),
     amount: t.Number(),
-    date: t.Optional(t.String()),
+    timeZone: t.String(),
+  }),
+  updateSaleBody: t.Object({
+    userId: t.String(),
+    amount: t.Number(),
   }),
   deleteSaleBody: t.Object({
     userId: t.String(),
