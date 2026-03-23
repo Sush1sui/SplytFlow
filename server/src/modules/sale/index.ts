@@ -3,6 +3,10 @@ import saleService from "./service";
 import { saleSchema } from "./model";
 
 const sales = new Elysia({ prefix: "/sales" })
+  .onAfterHandle(({ set, path }) => {
+    // LOGGER
+    console.log(`< Response for ${path}: ${set.status}`);
+  })
   /**
    * GET /sales
    * Request query: { userId: string, date: string }

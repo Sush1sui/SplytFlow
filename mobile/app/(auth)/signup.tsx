@@ -1,9 +1,80 @@
-import { Link } from "expo-router";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Button, H4, Input, Paragraph, XStack, YStack } from "tamagui";
+import { YStack } from "tamagui";
+import SignupForm from "@/components/pages/auth/signup/signup-form";
+import { useAuthActions } from "@/lib/context/auth-context";
+import useToast from "@/lib/context/toast-context";
+import { router } from "expo-router";
 
 export default function SignUp() {
+  const { OTP_signup } = useAuthActions();
+  const { showToast } = useToast();
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { firstName, lastName, email, password, confirmPassword } = form;
+      const success = await OTP_signup(email);
+
+      if (!success) {
+        showToast({
+          message: "Failed to send OTP. Please try again.",
+          type: "danger",
+          closable: true,
+        });
+        return;
+      }
+
+      router.push({
+        pathname: "/(public)/otp",
+        params: {
+          email,
+          firstName,
+          lastName,
+          password,
+          confirmPassword,
+          purpose: "signup",
+        },
+      });
+    } catch (error) {
+      console.error("Signup failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [OTP_signup, showToast, setLoading, router, form]);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -11,6 +82,7 @@ export default function SignUp() {
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
         <YStack
@@ -19,143 +91,21 @@ export default function SignUp() {
             backgroundColor: "#f4f6fb",
             paddingHorizontal: 20,
             paddingVertical: 28,
-            justifyContent: "center",
+            paddingTop: isKeyboardVisible ? 48 : 28,
+            justifyContent: isKeyboardVisible ? "flex-start" : "center",
           }}
         >
           <Animated.View entering={FadeInDown.duration(380).delay(80)}>
-            <YStack
-              style={{ width: "100%", maxWidth: 360, alignSelf: "center" }}
-              gap="$4"
-            >
-              <YStack gap="$1">
-                <H4 style={{ fontSize: 38, lineHeight: 42 }}>Create Account</H4>
-                <Paragraph style={{ color: "#5f6775", fontSize: 16 }}>
-                  Start tracking your sales today.
-                </Paragraph>
-              </YStack>
-
-              <YStack gap="$3">
-                <XStack gap="$2">
-                  <YStack style={{ flex: 1 }} gap="$1.5">
-                    <Paragraph style={{ color: "#232c3d", fontWeight: "600" }}>
-                      First Name
-                    </Paragraph>
-                    <Input
-                      placeholder="John"
-                      autoCapitalize="words"
-                      style={{
-                        backgroundColor: "#f4f6fb",
-                        borderColor: "#cfd6e4",
-                        borderRadius: 10,
-                        height: 48,
-                      }}
-                    />
-                  </YStack>
-
-                  <YStack style={{ flex: 1 }} gap="$1.5">
-                    <Paragraph style={{ color: "#232c3d", fontWeight: "600" }}>
-                      Last Name
-                    </Paragraph>
-                    <Input
-                      placeholder="Doe"
-                      autoCapitalize="words"
-                      style={{
-                        backgroundColor: "#f4f6fb",
-                        borderColor: "#cfd6e4",
-                        borderRadius: 10,
-                        height: 48,
-                      }}
-                    />
-                  </YStack>
-                </XStack>
-
-                <YStack gap="$1.5">
-                  <Paragraph style={{ color: "#232c3d", fontWeight: "600" }}>
-                    Email
-                  </Paragraph>
-                  <Input
-                    placeholder="hello@example.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    style={{
-                      backgroundColor: "#f4f6fb",
-                      borderColor: "#cfd6e4",
-                      borderRadius: 10,
-                      height: 48,
-                    }}
-                  />
-                </YStack>
-
-                <YStack gap="$1.5">
-                  <Paragraph style={{ color: "#232c3d", fontWeight: "600" }}>
-                    Password
-                  </Paragraph>
-                  <Input
-                    placeholder="Create a password"
-                    secureTextEntry
-                    style={{
-                      backgroundColor: "#f4f6fb",
-                      borderColor: "#cfd6e4",
-                      borderRadius: 10,
-                      height: 48,
-                    }}
-                  />
-                </YStack>
-
-                <YStack gap="$1.5">
-                  <Paragraph style={{ color: "#232c3d", fontWeight: "600" }}>
-                    Confirm Password
-                  </Paragraph>
-                  <Input
-                    placeholder="Confirm your password"
-                    secureTextEntry
-                    style={{
-                      backgroundColor: "#f4f6fb",
-                      borderColor: "#cfd6e4",
-                      borderRadius: 10,
-                      height: 48,
-                    }}
-                  />
-                </YStack>
-              </YStack>
-
-              <Button
-                size="$4"
-                style={{
-                  marginTop: 4,
-                  backgroundColor: "#4f46e5",
-                  borderColor: "#4f46e5",
-                  borderRadius: 10,
-                  height: 48,
-                  justifyContent: "center",
-                }}
-              >
-                <Paragraph style={{ color: "#ffffff", fontWeight: "700" }}>
-                  Sign Up
-                </Paragraph>
-              </Button>
-
-              <XStack
-                style={{
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingTop: 8,
-                }}
-                gap="$1"
-              >
-                <Paragraph style={{ color: "#5f6775" }}>
-                  Already have an account?
-                </Paragraph>
-                <Link href="/(auth)/signin" replace asChild>
-                  <Button
-                    chromeless
-                    style={{ color: "#4f46e5", fontWeight: "700" }}
-                  >
-                    Sign In
-                  </Button>
-                </Link>
-              </XStack>
-            </YStack>
+            <SignupForm
+              form={form}
+              setForm={setForm}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              showConfirmPassword={showConfirmPassword}
+              setShowConfirmPassword={setShowConfirmPassword}
+              handleSubmit={handleSubmit}
+              loading={loading}
+            />
           </Animated.View>
         </YStack>
       </ScrollView>

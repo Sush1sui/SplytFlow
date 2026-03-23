@@ -1,16 +1,16 @@
-import useAuthContext from "@/lib/context/auth-context";
+import { useAuthState } from "@/lib/context/auth-context";
 import { Redirect } from "expo-router";
 import React from "react";
-import { Text } from "react-native";
+import { Loading } from "@/components/loading";
 
 export default function AuthProtect({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuthContext();
+  const { user, loading } = useAuthState();
 
-  if (loading) return null; //replace with loading screen
+  if (loading) return <Loading message="Checking session..." />;
 
   if (!user) return <Redirect href="/(auth)/signin" />;
 

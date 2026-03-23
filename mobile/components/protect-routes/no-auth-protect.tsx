@@ -1,17 +1,18 @@
-import useAuthContext from "@/lib/context/auth-context";
+import { useAuthState } from "@/lib/context/auth-context";
 import React from "react";
 import { Redirect } from "expo-router";
+import { Loading } from "@/components/loading";
 
 export default function NoAuthProtect({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuthContext();
+  const { user, loading } = useAuthState();
 
-  if (loading) return null; // replace with loading screen
+  if (loading) return <Loading message="Checking session..." />;
 
-  if (user) return <Redirect href="/" />; // replace with home
+  if (user) return <Redirect href="/" />;
 
   return <>{children}</>;
 }

@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import * as SecureStore from "expo-secure-store";
-import { AuthContext } from "../context/auth-context";
-import { apiFetcher } from "../api";
+import { AuthActionsContext, AuthStateContext } from "../context/auth-context";
+import { apiFetcher, ApiError } from "../api";
 import { API_ENDPOINTS, API_BASE_URL } from "@/constants/api";
 import { router } from "expo-router";
 import type {
@@ -9,6 +9,8 @@ import type {
   LoginResponse,
   MeResponse,
   RefreshResponse,
+  AuthActions,
+  AuthState,
 } from "@/types/auth.types";
 import { requestOTP, verify } from "../utils/otp";
 import { validateSignup } from "../utils/auth-validate";
@@ -40,17 +42,25 @@ export default function AuthProvider({
 }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
-  // On app startup, validate the stored session or silently refresh it
-  useEffect(() => {
-    checkExistingSession();
+  const setUserSafe = useCallback((nextUser: UserProfile | null) => {
+    if (isMountedRef.current) {
+      setUser(nextUser);
+    }
+  }, []);
+
+  const setLoadingSafe = useCallback((nextLoading: boolean) => {
+    if (isMountedRef.current) {
+      setLoading(nextLoading);
+    }
   }, []);
 
   /**
    * Exchange the stored refresh token for a new access + refresh token pair.
    * Persists the new tokens and returns the new access token, or null on failure.
    */
-  const silentRefresh = async (): Promise<string | null> => {
+  const silentRefresh = useCallback(async (): Promise<string | null> => {
     try {
       const storedRefreshToken = await SecureStore.getItemAsync(
         REFRESH_TOKEN_KEY!,
@@ -77,49 +87,56 @@ export default function AuthProvider({
     } catch {
       return null;
     }
-  };
+  }, []);
 
-  const clearTokens = async () => {
+  const clearTokens = useCallback(async () => {
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY!),
       SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY!),
     ]);
-    setUser(null);
-  };
+    setUserSafe(null);
+  }, [setUserSafe]);
 
-  const checkExistingSession = async () => {
+  const checkExistingSession = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoadingSafe(true);
       const token = await SecureStore.getItemAsync(TOKEN_KEY!);
 
       if (!token) return;
 
       // Try the stored access token first
       try {
-        const data = await apiFetcher<MeResponse>(
+        const response = await apiFetcher<MeResponse>(
           `${API_BASE_URL}${API_ENDPOINTS.AUTH.ME}`,
           {
             method: "GET",
             headers: { Authorization: `Bearer ${token}` },
+            includeStatus: true,
           },
         );
-        setUser(data.user);
+
+        setUserSafe(response.data.user);
         return;
-      } catch {
-        // Access token expired or revoked — attempt silent refresh
+      } catch (error) {
+        if (error instanceof ApiError && error.status !== 401) {
+          // non-auth errors should clear session immediately
+          throw error;
+        }
+        // Access token expired or revoked (401) — attempt silent refresh
       }
 
       const newToken = await silentRefresh();
 
       if (newToken) {
-        const data = await apiFetcher<MeResponse>(
+        const response = await apiFetcher<MeResponse>(
           `${API_BASE_URL}${API_ENDPOINTS.AUTH.ME}`,
           {
             method: "GET",
             headers: { Authorization: `Bearer ${newToken}` },
+            includeStatus: true,
           },
         );
-        setUser(data.user);
+        setUserSafe(response.data.user);
       } else {
         // Both tokens invalid — force the user to log in again
         await clearTokens();
@@ -127,35 +144,54 @@ export default function AuthProvider({
     } catch {
       await clearTokens();
     } finally {
-      setLoading(false);
+      setLoadingSafe(false);
     }
-  };
+  }, [clearTokens, setLoadingSafe, setUserSafe, silentRefresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const data = await apiFetcher<LoginResponse>(
-        `${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        },
-      );
+  // On app startup, validate the stored session or silently refresh it
+  useEffect(() => {
+    checkExistingSession();
 
-      await Promise.all([
-        SecureStore.setItemAsync(TOKEN_KEY!, data.token),
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
-      ]);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [checkExistingSession]);
 
-      if (!data.user) throw new Error("Login failed. Please try again.");
+  const login = useCallback(
+    async (email: string, password: string) => {
+      try {
+        const response = await apiFetcher<LoginResponse>(
+          `${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+            includeStatus: true,
+          },
+        );
 
-      setUser(data.user);
-      return true;
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    }
-  }, []);
+        if (response.status === 401) {
+          throw new Error("Invalid email or password. Please try again.");
+        }
+
+        const { data } = response;
+
+        await Promise.all([
+          SecureStore.setItemAsync(TOKEN_KEY!, data.token),
+          SecureStore.setItemAsync(REFRESH_TOKEN_KEY!, data.refreshToken),
+        ]);
+
+        if (!data.user) throw new Error("Login failed. Please try again.");
+
+        setUserSafe(data.user);
+        return true;
+      } catch (error) {
+        console.error("Login failed:", error);
+        throw error;
+      }
+    },
+    [setUserSafe],
+  );
 
   const signup = useCallback(
     async (
@@ -247,14 +283,14 @@ export default function AuthProvider({
 
         if (!user) throw new Error("Signup failed. Please try again.");
 
-        setUser(user);
+        setUserSafe(user);
         return true;
       } catch (error) {
         console.error("OTP verification failed:", error);
         throw error;
       }
     },
-    [signup],
+    [signup, setUserSafe],
   );
 
   const logout = useCallback(async () => {
@@ -282,14 +318,23 @@ export default function AuthProvider({
       await clearTokens();
       router.replace("/(auth)/signin");
     }
-  }, []);
+  }, [clearTokens]);
 
-  const contextValue = useMemo(
-    () => ({ user, login, OTP_signup, verifyOTP, logout, loading }),
-    [user, login, OTP_signup, verifyOTP, logout, loading],
+  const authStateValue = useMemo<AuthState>(
+    () => ({ user, loading }),
+    [user, loading],
+  );
+
+  const authActionsValue = useMemo<AuthActions>(
+    () => ({ login, OTP_signup, verifyOTP, logout }),
+    [login, OTP_signup, verifyOTP, logout],
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+    <AuthActionsContext.Provider value={authActionsValue}>
+      <AuthStateContext.Provider value={authStateValue}>
+        {children}
+      </AuthStateContext.Provider>
+    </AuthActionsContext.Provider>
   );
 }

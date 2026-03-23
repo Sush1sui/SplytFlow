@@ -3,6 +3,10 @@ import splitService from "./service";
 import { splitSchema, splitErrorStatus } from "./model";
 
 const split = new Elysia({ prefix: "/splits" })
+  .onAfterHandle(({ set, path }) => {
+    // LOGGER
+    console.log(`< Response for ${path}: ${set.status}`);
+  })
   /**
    * GET /splits
    * Request query: { splitCategoryId: string, userId: string }

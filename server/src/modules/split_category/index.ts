@@ -3,6 +3,10 @@ import splitService from "./service";
 import { splitCategorySchema } from "./model";
 
 const splitCategory = new Elysia({ prefix: "/splits/categories" })
+  .onAfterHandle(({ set, path }) => {
+    // LOGGER
+    console.log(`< Response for ${path}: ${set.status}`);
+  })
   /**
    * GET /splits/categories
    * Request query: { userId: string }

@@ -1,5 +1,5 @@
-import Elysia, { t } from "elysia";
-import { GenerateOtpBody, VerifyOtpBody } from "./model";
+import Elysia from "elysia";
+import { GenerateOtpBody, OtpSchema } from "./model";
 import { create, verify } from "./service";
 import { checkRateLimit } from "../../utils/rate-limit";
 import { getClientIp } from "../../utils/request";
@@ -7,23 +7,11 @@ import { getClientIp } from "../../utils/request";
 // 3 OTP requests per 10 minutes per IP
 const OTP_RATE_LIMIT = { max: 3, windowMs: 10 * 60 * 1000 };
 
-const otpPurposeSchema = t.Union([
-  t.Literal("signup"),
-  t.Literal("password-reset"),
-]);
-
-const generateOtpBodySchema = t.Object({
-  email: t.String(),
-  purpose: otpPurposeSchema,
-});
-
-const verifyOtpBodySchema = t.Object({
-  email: t.String(),
-  purpose: otpPurposeSchema,
-  code: t.String(),
-});
-
 const otp = new Elysia({ prefix: "/otp" })
+  .onAfterHandle(({ set, path }) => {
+    // LOGGER
+    console.log(`< Response for ${path}: ${set.status}`);
+  })
   /**
    * POST /otp
    * Body: { email, purpose }
@@ -77,7 +65,7 @@ const otp = new Elysia({ prefix: "/otp" })
       }
     },
     {
-      body: generateOtpBodySchema,
+      body: OtpSchema.generateOtpBody,
     },
   )
 
@@ -120,7 +108,7 @@ const otp = new Elysia({ prefix: "/otp" })
       }
     },
     {
-      body: verifyOtpBodySchema,
+      body: OtpSchema.verifyOtpBody,
     },
   );
 

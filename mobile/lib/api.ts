@@ -34,11 +34,35 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiFetcherOptions = RequestInit & {
+  includeStatus?: boolean;
+};
+
+export type ApiFetcherResult<T> = {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  rawBody: unknown;
+};
+
+export function apiFetcher<T = any>(
+  url: string,
+  options: ApiFetcherOptions & { includeStatus: true },
+): Promise<ApiFetcherResult<T>>;
+
+export function apiFetcher<T = any>(
+  url: string,
+  options?: ApiFetcherOptions & { includeStatus?: false | undefined },
+): Promise<T>;
+
 export async function apiFetcher<T = any>(
   url: string,
-  options?: RequestInit,
-): Promise<T> {
-  const response = await fetch(url, options);
+  options?: ApiFetcherOptions,
+): Promise<T | ApiFetcherResult<T>> {
+  const { includeStatus, ...fetchOptions } = options ?? {};
+
+  const response = await fetch(url, fetchOptions as RequestInit);
   const contentType = response.headers.get("content-type") || "";
 
   const parseBody = async (): Promise<unknown> => {
@@ -63,6 +87,16 @@ export async function apiFetcher<T = any>(
 
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText, body);
+  }
+
+  if (includeStatus) {
+    return {
+      data: body as T,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      rawBody: body,
+    } as ApiFetcherResult<T>;
   }
 
   return body as T;

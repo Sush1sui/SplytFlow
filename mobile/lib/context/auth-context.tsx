@@ -1,8 +1,16 @@
-import { createContext, useContext } from "react";
-import { AuthContext as AuthContextType } from "@/types/auth.types";
+import { createContext, useContext, useMemo } from "react";
+import {
+  AuthActions,
+  AuthContext as AuthContextType,
+  AuthState,
+} from "@/types/auth.types";
 
-export const AuthContext = createContext<AuthContextType>({
+const defaultAuthState: AuthState = {
   user: null,
+  loading: false,
+};
+
+const defaultAuthActions: AuthActions = {
   login: async () => Promise.resolve(false),
   OTP_signup: async () => Promise.resolve(false),
   verifyOTP: async (
@@ -14,9 +22,20 @@ export const AuthContext = createContext<AuthContextType>({
     code: string,
   ) => Promise.resolve(false),
   logout: () => {},
-  loading: false,
-});
+};
 
-const useAuthContext = () => useContext(AuthContext);
+export const AuthStateContext = createContext<AuthState>(defaultAuthState);
+export const AuthActionsContext =
+  createContext<AuthActions>(defaultAuthActions);
+
+export const useAuthState = () => useContext(AuthStateContext);
+export const useAuthActions = () => useContext(AuthActionsContext);
+
+const useAuthContext = (): AuthContextType => {
+  const state = useAuthState();
+  const actions = useAuthActions();
+
+  return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+};
 
 export default useAuthContext;

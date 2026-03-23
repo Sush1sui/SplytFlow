@@ -24,6 +24,13 @@ export type AuthContext = {
   loading: boolean;
 };
 
+export type AuthState = Pick<AuthContext, "user" | "loading">;
+
+export type AuthActions = Pick<
+  AuthContext,
+  "login" | "OTP_signup" | "verifyOTP" | "logout"
+>;
+
 export type SignUpParams = {
   firstName: string;
   lastName: string;

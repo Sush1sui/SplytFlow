@@ -22,6 +22,10 @@ import { getClientIp } from "../../utils/request";
 const AUTH_RATE_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
 
 const auth = new Elysia({ prefix: "/auth" })
+  .onAfterHandle(({ set, path }) => {
+    // LOGGER
+    console.log(`< Response for ${path}: ${set.status}`);
+  })
   /**
    * POST /auth/signin
    * Body: { email, password }
