@@ -1,4 +1,4 @@
-import { SalesRangePreset, SalesRangeQuery } from "@/types/sale.types";
+import { SaleRow, SalesRangePreset, SalesRangeQuery } from "@/types/sale.types";
 
 export function getLocalDateString(date = new Date()): string {
   const year = date.getFullYear();
