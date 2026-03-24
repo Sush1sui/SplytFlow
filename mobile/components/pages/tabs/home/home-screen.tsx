@@ -1,15 +1,47 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Input, Paragraph, XStack, YStack } from "tamagui";
-
-const logs = [
-  { title: "Morning Sales Batch", time: "10:42 AM", amount: "+$150.00" },
-  { title: "Early Walk-ins", time: "09:15 AM", amount: "+$85.50" },
-  { title: "Afternoon Rush", time: "01:30 PM", amount: "+$225.00" },
-];
+import { useAuthState } from "@/lib/context/auth-context";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { hydrateLogs } from "@/lib/store/logSlice";
+import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
+import LogCard from "./log-card";
+import NoLogCard from "./no-log-card";
+import HomeSaleCard from "./home-sale-card";
 
 export default function HomeScreen() {
+  const { user } = useAuthState();
+  const dispatch = useAppDispatch();
+  const logs = useAppSelector((s) => s.log.list);
+  const splits = useAppSelector((s) => s.split);
+  const sales = useAppSelector((s) => s.sale);
+
+  const [totalSales, setTotalSales] = useState(0);
+  const [netSales, setNetSales] = useState(0);
+  const [salesChangePercent, setSalesChangePercent] = useState(0);
+
+  useEffect(() => {
+    const today = sales.sales.today ?? 0;
+    const prev30 = sales.sales.oneMonthAgo ?? 0;
+
+    const activeSplit = splits.splitGroups.find(
+      (group) => group.id === splits.activeSplitGroupId,
+    );
+
+    const totalSplitPct = activeSplit
+      ? activeSplit.splits.reduce((sum, split) => sum + split.value, 0)
+      : 0;
+
+    setTotalSales(today);
+    setNetSales(computeNetSale(today, totalSplitPct));
+    setSalesChangePercent(computePercentChange(today, prev30));
+  }, [sales.sales, splits.splitGroups, splits.activeSplitGroupId]);
+
+  useEffect(() => {
+    dispatch(hydrateLogs());
+  }, [dispatch]);
+
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
       <ScrollView
@@ -24,13 +56,15 @@ export default function HomeScreen() {
         >
           <YStack>
             <Paragraph style={{ color: "#6b7280", fontSize: 14 }}>
-              Good morning,
+              Good morning{user && ","}
             </Paragraph>
-            <Paragraph
-              style={{ color: "#0f172a", fontSize: 22, fontWeight: "800" }}
-            >
-              John Doe
-            </Paragraph>
+            {user && (
+              <Paragraph
+                style={{ color: "#0f172a", fontSize: 22, fontWeight: "800" }}
+              >
+                {user.firstName}
+              </Paragraph>
+            )}
           </YStack>
 
           <YStack
@@ -51,76 +85,12 @@ export default function HomeScreen() {
           </YStack>
         </XStack>
 
-        <YStack
-          style={{
-            marginTop: 20,
-            borderRadius: 20,
-            padding: 18,
-            backgroundColor: "#4f46e5",
-            shadowColor: "#4f46e5",
-            shadowOpacity: 0.28,
-            shadowOffset: { width: 0, height: 8 },
-            shadowRadius: 18,
-            elevation: 8,
-          }}
-          gap="$3"
-        >
-          <Paragraph
-            style={{ color: "#dbe4ff", fontWeight: "700", fontSize: 16 }}
-          >
-            Total Sales Today
-          </Paragraph>
-          <Paragraph
-            style={{
-              color: "#ffffff",
-              fontSize: 36,
-              lineHeight: 40,
-              fontWeight: "900",
-            }}
-          >
-            $1,240.50
-          </Paragraph>
-          <YStack
-            style={{ height: 1, backgroundColor: "rgba(255,255,255,0.25)" }}
-          />
-
-          <XStack
-            style={{ justifyContent: "space-between", alignItems: "center" }}
-          >
-            <YStack>
-              <Paragraph style={{ color: "#dbe4ff", fontSize: 13 }}>
-                Net Sales (After Splits)
-              </Paragraph>
-              <Paragraph
-                style={{ color: "#ffffff", fontSize: 24, fontWeight: "800" }}
-              >
-                $682.27
-              </Paragraph>
-            </YStack>
-
-            <XStack
-              style={{
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                backgroundColor: "#5d55ee",
-                alignItems: "center",
-              }}
-              gap="$1"
-            >
-              <MaterialCommunityIcons
-                name="arrow-top-right"
-                size={14}
-                color="#9ff3c7"
-              />
-              <Paragraph
-                style={{ color: "#9ff3c7", fontWeight: "700", fontSize: 12 }}
-              >
-                +15% (30d)
-              </Paragraph>
-            </XStack>
-          </XStack>
-        </YStack>
+        <HomeSaleCard
+          totalSales={totalSales}
+          netSales={netSales}
+          salesChangePercent={salesChangePercent}
+          currency="$"
+        />
 
         <YStack style={{ marginTop: 24 }} gap="$2">
           <Paragraph
@@ -175,54 +145,11 @@ export default function HomeScreen() {
             </Paragraph>
           </XStack>
 
-          {logs.map((log) => (
-            <XStack
-              key={log.title}
-              style={{
-                alignItems: "center",
-                borderRadius: 14,
-                backgroundColor: "#ffffff",
-                borderColor: "#e5eaf3",
-                borderWidth: 1,
-                padding: 12,
-              }}
-              gap="$3"
-            >
-              <YStack
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "#d8f7e4",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="arrow-top-right"
-                  size={18}
-                  color="#22c55e"
-                />
-              </YStack>
-
-              <YStack style={{ flex: 1 }}>
-                <Paragraph
-                  style={{ color: "#0f172a", fontWeight: "700", fontSize: 16 }}
-                >
-                  {log.title}
-                </Paragraph>
-                <Paragraph style={{ color: "#6b7280", fontSize: 13 }}>
-                  {log.time}
-                </Paragraph>
-              </YStack>
-
-              <Paragraph
-                style={{ color: "#0f172a", fontWeight: "800", fontSize: 16 }}
-              >
-                {log.amount}
-              </Paragraph>
-            </XStack>
-          ))}
+          {logs.length === 0 ? (
+            <NoLogCard />
+          ) : (
+            logs.map((log) => <LogCard key={log.id} log={log} currency="$" />)
+          )}
         </YStack>
       </ScrollView>
     </YStack>

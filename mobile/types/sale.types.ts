@@ -29,6 +29,13 @@ export type SaleState = {
   error: string | null;
 };
 
+export type RecentLogType = {
+  id: string;
+  userId: string;
+  amount: number;
+  createdAt: string;
+};
+
 export type AddSalePayload = {
   userId: string;
   amount: number;
