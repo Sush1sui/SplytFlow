@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { ApiError, apiFetcher } from "../api";
 import {
+  addRecentLog,
   getLocalTimeZone,
   getSalesRangeQueryByPreset,
   sumSaleRows,
@@ -9,12 +10,14 @@ import {
   AddSalePayload,
   DeleteSalePayload,
   DeleteSaleResponse,
+  RecentLogType,
   SaleRow,
   SalesRangePreset,
   SaleState,
   SalesTotals,
   UpdateSalePayload,
 } from "@/types/sale.types";
+import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
 
 const RANGE_PRESETS: SalesRangePreset[] = [
   "today",
@@ -57,7 +60,7 @@ export const fetchSales = createAsyncThunk(
         });
         try {
           const rows = await apiFetcher<SaleRow[]>(
-            `/sales/range?${query.toString()}`,
+            `${API_BASE_URL}${API_ENDPOINTS.SALE.RANGE}?${query.toString()}`,
           );
           return { preset, total: sumSaleRows(rows) };
         } catch (error) {
@@ -82,16 +85,31 @@ export const addSale = createAsyncThunk(
   async ({ userId, amount }: AddSalePayload) => {
     const timeZone = getLocalTimeZone();
 
-    const result = await apiFetcher<SaleRow>("/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        amount,
-        timeZone,
-      }),
-    });
+    const result = await apiFetcher<SaleRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SALE.CREATE}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          amount,
+          timeZone,
+        }),
+      },
+    );
 
+    // Local log persistence should never block a successful sale write.
+    const recentLog: RecentLogType = {
+      id: result.id,
+      userId: result.userId,
+      amount: result.amount,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await addRecentLog(recentLog);
+    } catch {
+      // Non-critical side effect; sale creation has already succeeded.
+    }
     return result;
   },
 );
@@ -99,14 +117,17 @@ export const addSale = createAsyncThunk(
 export const updateSale = createAsyncThunk(
   "sales/updateSale",
   async ({ id, userId, amount }: UpdateSalePayload) => {
-    const result = await apiFetcher<SaleRow>(`/sales/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        amount,
-      }),
-    });
+    const result = await apiFetcher<SaleRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID}/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          amount,
+        }),
+      },
+    );
 
     return result;
   },
@@ -115,11 +136,14 @@ export const updateSale = createAsyncThunk(
 export const deleteSale = createAsyncThunk(
   "sales/deleteSale",
   async ({ id, userId }: DeleteSalePayload) => {
-    const result = await apiFetcher<DeleteSaleResponse>(`/sales/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
+    const result = await apiFetcher<DeleteSaleResponse>(
+      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID}/${id}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      },
+    );
 
     return result;
   },

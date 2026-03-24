@@ -1,18 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Button, Input, Paragraph, XStack, YStack } from "tamagui";
+import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { useAuthState } from "@/lib/context/auth-context";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { hydrateLogs } from "@/lib/store/logSlice";
+import {
+  clearAllLogs,
+  deleteLogByIndex,
+  hydrateLogs,
+} from "@/lib/store/logSlice";
 import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
+import { fetchSales } from "@/lib/store/saleSlice";
+import useToast from "@/lib/context/toast-context";
 import LogCard from "./log-card";
 import NoLogCard from "./no-log-card";
 import HomeSaleCard from "./home-sale-card";
+import QuickAddSale from "./quick-add-sale";
 
 export default function HomeScreen() {
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
   const logs = useAppSelector((s) => s.log.list);
   const splits = useAppSelector((s) => s.split);
   const sales = useAppSelector((s) => s.sale);
@@ -40,7 +48,19 @@ export default function HomeScreen() {
 
   useEffect(() => {
     dispatch(hydrateLogs());
-  }, [dispatch]);
+
+    if (user?.id) {
+      dispatch(fetchSales(user.id));
+    }
+  }, [dispatch, user?.id]);
+
+  const handleClearAllLogs = async () => {
+    await dispatch(clearAllLogs()).unwrap();
+  };
+
+  const handleDeleteLog = async (index: number) => {
+    await dispatch(deleteLogByIndex(index)).unwrap();
+  };
 
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
@@ -92,44 +112,7 @@ export default function HomeScreen() {
           currency="$"
         />
 
-        <YStack style={{ marginTop: 24 }} gap="$2">
-          <Paragraph
-            style={{ color: "#0f172a", fontSize: 20, fontWeight: "800" }}
-          >
-            Quick Add Sale
-          </Paragraph>
-          <XStack gap="$2">
-            <Input
-              value="$ 0.00"
-              editable={false}
-              style={{
-                flex: 1,
-                backgroundColor: "#ffffff",
-                borderColor: "#d6dce8",
-                borderRadius: 10,
-                height: 48,
-                color: "#94a3b8",
-                fontWeight: "700",
-              }}
-            />
-            <Button
-              style={{
-                backgroundColor: "#111827",
-                borderColor: "#111827",
-                borderRadius: 10,
-                height: 48,
-                width: 96,
-              }}
-            >
-              <XStack style={{ alignItems: "center" }} gap="$1.5">
-                <MaterialCommunityIcons name="plus" size={16} color="#ffffff" />
-                <Paragraph style={{ color: "#ffffff", fontWeight: "800" }}>
-                  Add
-                </Paragraph>
-              </XStack>
-            </Button>
-          </XStack>
-        </YStack>
+        <QuickAddSale />
 
         <YStack style={{ marginTop: 24 }} gap="$2">
           <XStack
@@ -140,15 +123,34 @@ export default function HomeScreen() {
             >
               Recent Logs
             </Paragraph>
-            <Paragraph style={{ color: "#4f46e5", fontWeight: "600" }}>
-              View All
-            </Paragraph>
+            <Button
+              chromeless
+              unstyled
+              onPress={handleClearAllLogs}
+              disabled={logs.length === 0}
+              pressStyle={{ opacity: 0.7, background: "transparent" }}
+              style={{
+                opacity: logs.length === 0 ? 0.45 : 1,
+                backgroundColor: "transparent",
+              }}
+            >
+              <Paragraph style={{ color: "#4f46e5", fontWeight: "600" }}>
+                Clear All
+              </Paragraph>
+            </Button>
           </XStack>
 
           {logs.length === 0 ? (
             <NoLogCard />
           ) : (
-            logs.map((log) => <LogCard key={log.id} log={log} currency="$" />)
+            logs.map((log, index) => (
+              <LogCard
+                key={`${log.id}-${log.updatedAt ?? log.createdAt}-${index}`}
+                log={log}
+                currency="$"
+                onDelete={() => handleDeleteLog(index)}
+              />
+            ))
           )}
         </YStack>
       </ScrollView>

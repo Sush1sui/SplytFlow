@@ -1,6 +1,11 @@
 import { RecentLogType } from "@/types/sale.types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { loadRecentLogs, addRecentLog } from "../utils/sale";
+import {
+  loadRecentLogs,
+  addRecentLog,
+  clearRecentLogs,
+  removeRecentLogByIndex,
+} from "../utils/sale";
 
 const initialState = {
   list: [] as RecentLogType[],
@@ -20,14 +25,23 @@ export const appendLog = createAsyncThunk(
   },
 );
 
+export const deleteLogByIndex = createAsyncThunk(
+  "logs/deleteLogByIndex",
+  async (index: number) => {
+    await removeRecentLogByIndex(index);
+    return await loadRecentLogs();
+  },
+);
+
+export const clearAllLogs = createAsyncThunk("logs/clearAllLogs", async () => {
+  await clearRecentLogs();
+  return [] as RecentLogType[];
+});
+
 const logSlice = createSlice({
   name: "log",
   initialState,
-  reducers: {
-    clearLogs(state) {
-      state.list = [];
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(hydrateLogs.pending, (state) => {
@@ -44,9 +58,14 @@ const logSlice = createSlice({
       })
       .addCase(appendLog.fulfilled, (state, action) => {
         state.list = action.payload;
+      })
+      .addCase(deleteLogByIndex.fulfilled, (state, action) => {
+        state.list = action.payload;
+      })
+      .addCase(clearAllLogs.fulfilled, (state, action) => {
+        state.list = action.payload;
       });
   },
 });
 
-export const { clearLogs } = logSlice.actions;
 export default logSlice.reducer;

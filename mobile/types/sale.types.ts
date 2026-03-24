@@ -34,6 +34,7 @@ export type RecentLogType = {
   userId: string;
   amount: number;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type AddSalePayload = {

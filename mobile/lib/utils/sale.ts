@@ -20,7 +20,11 @@ export async function loadRecentLogs(): Promise<RecentLogType[]> {
   const raw = await SecureStore.getItemAsync(RECENT_LOGS_KEY);
   if (!raw) return [];
   try {
-    return JSON.parse(raw) as RecentLogType[];
+    const parsed = JSON.parse(raw) as RecentLogType[];
+    return [...parsed].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   } catch (error) {
     await SecureStore.deleteItemAsync(RECENT_LOGS_KEY);
     return [];
@@ -41,6 +45,22 @@ export async function addRecentLog(newLog: RecentLogType): Promise<void> {
   const updated = [...logs, newLog].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  await saveRecentLogs(updated);
+}
+
+export async function clearRecentLogs(): Promise<void> {
+  if (!RECENT_LOGS_KEY)
+    throw new Error(
+      "EXPO_PUBLIC_RECENT_LOGS_KEY environment variable is required",
+    );
+  await SecureStore.deleteItemAsync(RECENT_LOGS_KEY);
+}
+
+export async function removeRecentLogByIndex(index: number): Promise<void> {
+  const logs = await loadRecentLogs();
+  if (index < 0 || index >= logs.length) return;
+  const updated = [...logs];
+  updated.splice(index, 1);
   await saveRecentLogs(updated);
 }
 

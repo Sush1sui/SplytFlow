@@ -69,23 +69,21 @@ function HomeSaleCard({
           }}
           gap="$1"
         >
-          <MaterialCommunityIcons
-            name={
-              salesChangePercent > 0
-                ? "arrow-top-right"
-                : salesChangePercent < 0
-                  ? "arrow-bottom-left"
-                  : "minus"
-            }
-            size={14}
-            color={
-              salesChangePercent > 0
-                ? "#9ff3c7"
-                : salesChangePercent < 0
-                  ? "#fca5a5"
-                  : "#a1a1aa"
-            }
-          />
+          {salesChangePercent !== 0 && (
+            <MaterialCommunityIcons
+              name={
+                salesChangePercent > 0 ? "arrow-top-right" : "arrow-bottom-left"
+              }
+              size={14}
+              color={
+                salesChangePercent > 0
+                  ? "#9ff3c7"
+                  : salesChangePercent < 0
+                    ? "#fca5a5"
+                    : "#a1a1aa"
+              }
+            />
+          )}
           <Paragraph
             style={{
               color:
