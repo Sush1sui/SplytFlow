@@ -88,22 +88,39 @@ export function getSalesRangeQueryByPreset(
 ): SalesRangeQuery {
   const timeZone = getLocalTimeZone();
 
-  const dayOffsetByPreset: Record<SalesRangePreset, number> = {
-    today: 0,
-    "1d": -1,
-    "1w": -7,
-    "1m": -30,
-    "3m": -90,
-    "1y": -365,
+  const rangeOffsetsByPreset: Record<
+    SalesRangePreset,
+    { startOffsetDays: number; endOffsetDays: number }
+  > = {
+    today: { startOffsetDays: 0, endOffsetDays: 0 },
+    "1d": { startOffsetDays: -1, endOffsetDays: -1 },
+    "2d": { startOffsetDays: -2, endOffsetDays: -2 },
+    "1w": { startOffsetDays: -7, endOffsetDays: -7 },
+    "1m": { startOffsetDays: -30, endOffsetDays: -30 },
+    "3m": { startOffsetDays: -90, endOffsetDays: -90 },
+    "1y": { startOffsetDays: -365, endOffsetDays: -365 },
+    "7d": { startOffsetDays: -6, endOffsetDays: 0 },
+    prev7d: { startOffsetDays: -13, endOffsetDays: -7 },
+    "30d": { startOffsetDays: -29, endOffsetDays: 0 },
+    prev30d: { startOffsetDays: -59, endOffsetDays: -30 },
+    "90d": { startOffsetDays: -89, endOffsetDays: 0 },
+    prev90d: { startOffsetDays: -179, endOffsetDays: -90 },
+    "365d": { startOffsetDays: -364, endOffsetDays: 0 },
+    prev365d: { startOffsetDays: -729, endOffsetDays: -365 },
   };
 
-  const localDate = getLocalDateString(
-    shiftLocalDate(baseDate, dayOffsetByPreset[preset]),
+  const { startOffsetDays, endOffsetDays } = rangeOffsetsByPreset[preset];
+
+  const startLocalDate = getLocalDateString(
+    shiftLocalDate(baseDate, startOffsetDays),
+  );
+  const endLocalDate = getLocalDateString(
+    shiftLocalDate(baseDate, endOffsetDays),
   );
 
   return {
-    startLocalDate: localDate,
-    endLocalDate: localDate,
+    startLocalDate,
+    endLocalDate,
     timeZone,
   };
 }
@@ -126,6 +143,12 @@ export function computePercentChange(
   }
 
   return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+export function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function padTwo(value: number): string {

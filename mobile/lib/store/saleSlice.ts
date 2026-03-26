@@ -22,20 +22,47 @@ import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
 const RANGE_PRESETS: SalesRangePreset[] = [
   "today",
   "1d",
+  "2d",
   "1w",
   "1m",
   "3m",
   "1y",
+  "7d",
+  "prev7d",
+  "30d",
+  "prev30d",
+  "90d",
+  "prev90d",
+  "365d",
+  "prev365d",
 ];
 
 const PRESET_TO_KEY: Record<SalesRangePreset, keyof SalesTotals> = {
   today: "today",
   "1d": "oneDayAgo",
+  "2d": "twoDaysAgo",
   "1w": "oneWeekAgo",
   "1m": "oneMonthAgo",
   "3m": "threeMonthsAgo",
   "1y": "oneYearAgo",
+  "7d": "last7Days",
+  prev7d: "prior7Days",
+  "30d": "last30Days",
+  prev30d: "prior30Days",
+  "90d": "last90Days",
+  prev90d: "prior90Days",
+  "365d": "last365Days",
+  prev365d: "prior365Days",
 };
+
+function upsertHistoryRow(history: SaleRow[], row: SaleRow): SaleRow[] {
+  const index = history.findIndex((item) => item.id === row.id);
+  if (index === -1) return [row, ...history];
+
+  const next = [...history];
+  next[index] = row;
+  return next;
+}
 
 export const fetchSales = createAsyncThunk(
   "sales/fetchSales",
@@ -43,10 +70,19 @@ export const fetchSales = createAsyncThunk(
     const totals: SalesTotals = {
       today: 0,
       oneDayAgo: 0,
+      twoDaysAgo: 0,
       oneWeekAgo: 0,
       oneMonthAgo: 0,
       threeMonthsAgo: 0,
       oneYearAgo: 0,
+      last7Days: 0,
+      prior7Days: 0,
+      last30Days: 0,
+      prior30Days: 0,
+      last90Days: 0,
+      prior90Days: 0,
+      last365Days: 0,
+      prior365Days: 0,
     };
     const results = await Promise.all(
       RANGE_PRESETS.map(async (preset) => {
@@ -80,9 +116,31 @@ export const fetchSales = createAsyncThunk(
   },
 );
 
+export const fetchSalesHistory = createAsyncThunk(
+  "sales/fetchSalesHistory",
+  async (userId: string) => {
+    const query = new URLSearchParams({ userId });
+    try {
+      const rows = await apiFetcher<SaleRow[]>(
+        `${API_BASE_URL}${API_ENDPOINTS.SALE.LIST}?${query.toString()}`,
+      );
+
+      return rows.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return [] as SaleRow[];
+      }
+      throw error;
+    }
+  },
+);
+
 export const addSale = createAsyncThunk(
   "sales/addSale",
-  async ({ userId, amount }: AddSalePayload) => {
+  async ({ userId, amount, localDate, localTime }: AddSalePayload) => {
     const timeZone = getLocalTimeZone();
 
     const result = await apiFetcher<SaleRow>(
@@ -94,6 +152,8 @@ export const addSale = createAsyncThunk(
           userId,
           amount,
           timeZone,
+          localDate,
+          localTime,
         }),
       },
     );
@@ -103,6 +163,7 @@ export const addSale = createAsyncThunk(
       id: result.id,
       userId: result.userId,
       amount: result.amount,
+      actionType: "create",
       createdAt: new Date().toISOString(),
     };
     try {
@@ -118,7 +179,7 @@ export const updateSale = createAsyncThunk(
   "sales/updateSale",
   async ({ id, userId, amount }: UpdateSalePayload) => {
     const result = await apiFetcher<SaleRow>(
-      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID}/${id}`,
+      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID(id)}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -129,15 +190,30 @@ export const updateSale = createAsyncThunk(
       },
     );
 
+    const recentLog: RecentLogType = {
+      id: result.id,
+      userId: result.userId,
+      amount: result.amount,
+      actionType: "update",
+      createdAt: new Date().toISOString(),
+      updatedAt: result.updatedAt,
+    };
+
+    try {
+      await addRecentLog(recentLog);
+    } catch {
+      // Non-critical side effect; sale update has already succeeded.
+    }
+
     return result;
   },
 );
 
 export const deleteSale = createAsyncThunk(
   "sales/deleteSale",
-  async ({ id, userId }: DeleteSalePayload) => {
+  async ({ id, userId, amount }: DeleteSalePayload) => {
     const result = await apiFetcher<DeleteSaleResponse>(
-      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID}/${id}`,
+      `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID(id)}`,
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -145,7 +221,21 @@ export const deleteSale = createAsyncThunk(
       },
     );
 
-    return result;
+    const recentLog: RecentLogType = {
+      id,
+      userId,
+      amount: amount ?? 0,
+      actionType: "delete",
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await addRecentLog(recentLog);
+    } catch {
+      // Non-critical side effect; sale deletion has already succeeded.
+    }
+
+    return { id, message: result.message };
   },
 );
 
@@ -153,11 +243,23 @@ const initialState: SaleState = {
   sales: {
     today: 0,
     oneDayAgo: 0,
+    twoDaysAgo: 0,
     oneWeekAgo: 0,
     oneMonthAgo: 0,
     threeMonthsAgo: 0,
     oneYearAgo: 0,
+    last7Days: 0,
+    prior7Days: 0,
+    last30Days: 0,
+    prior30Days: 0,
+    last90Days: 0,
+    prior90Days: 0,
+    last365Days: 0,
+    prior365Days: 0,
   },
+  history: [],
+  historyStatus: "idle",
+  historyError: null,
   status: "idle",
   error: null,
 };
@@ -179,6 +281,36 @@ const saleSlice = createSlice({
       .addCase(fetchSales.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.error.message ?? "Failed to fetch sales";
+      })
+      .addCase(fetchSalesHistory.pending, (state) => {
+        state.historyStatus = "loading";
+        state.historyError = null;
+      })
+      .addCase(fetchSalesHistory.fulfilled, (state, action) => {
+        state.historyStatus = "succeeded";
+        state.history = action.payload;
+      })
+      .addCase(fetchSalesHistory.rejected, (state, action) => {
+        state.historyStatus = "failed";
+        state.historyError =
+          action.error.message ?? "Failed to fetch sales history";
+      })
+      .addCase(addSale.fulfilled, (state, action) => {
+        state.history = upsertHistoryRow(state.history, action.payload).sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      })
+      .addCase(updateSale.fulfilled, (state, action) => {
+        state.history = upsertHistoryRow(state.history, action.payload).sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      })
+      .addCase(deleteSale.fulfilled, (state, action) => {
+        state.history = state.history.filter(
+          (item) => item.id !== action.payload.id,
+        );
       });
   },
 });

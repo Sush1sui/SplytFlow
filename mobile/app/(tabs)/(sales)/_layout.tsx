@@ -9,6 +9,7 @@ export default function SalesLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="sale-history-page" />
     </Stack>
   );
 }

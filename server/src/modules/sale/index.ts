@@ -128,9 +128,15 @@ const sales = new Elysia({ prefix: "/sales" })
     "/",
     async ({ body, set }) => {
       try {
-        const { userId, amount, timeZone } = body;
+        const { userId, amount, timeZone, localDate, localTime } = body;
 
-        const sale = await saleService.upsert(userId, amount, timeZone);
+        const sale = await saleService.upsert(
+          userId,
+          amount,
+          timeZone,
+          localDate,
+          localTime,
+        );
 
         if (!sale) {
           set.status = 404;

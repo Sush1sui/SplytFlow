@@ -10,15 +10,13 @@ type Segment = {
   color: string;
 };
 
-const segments: Segment[] = [
-  { label: "Net Profit", value: 55, color: "#10b981" },
-  { label: "Electricity", value: 10, color: "#3b82f6" },
-  { label: "Food", value: 20, color: "#f97316" },
-  { label: "Transport", value: 10, color: "#eab308" },
-  { label: "Water", value: 5, color: "#06b6d4" },
-];
-
-export default function SalesDonutChart() {
+export default function SalesDonutChart({
+  segments,
+  centerPercentage,
+}: {
+  segments: Segment[];
+  centerPercentage: number;
+}) {
   const { width, font } = useTabResponsive();
   const chartSize = Math.max(150, Math.min(width - 130, 210));
   const strokeWidth = Math.max(20, Math.min(chartSize * 0.16, 30));
@@ -75,7 +73,7 @@ export default function SalesDonutChart() {
           }}
         >
           <Paragraph style={{ color: "#64748b", fontSize: font(13, 11, 14) }}>
-            Net Profit
+            Net Sales
           </Paragraph>
           <Paragraph
             style={{
@@ -84,7 +82,7 @@ export default function SalesDonutChart() {
               fontWeight: "800",
             }}
           >
-            55%
+            {Math.round(centerPercentage)}%
           </Paragraph>
         </YStack>
       </View>
@@ -108,7 +106,7 @@ export default function SalesDonutChart() {
               }}
             />
             <Paragraph style={{ color: "#334155", fontSize: font(13, 11, 14) }}>
-              {item.label} ({item.value}%)
+              {item.label} ({Number(item.value.toFixed(1))}%)
             </Paragraph>
           </XStack>
         ))}

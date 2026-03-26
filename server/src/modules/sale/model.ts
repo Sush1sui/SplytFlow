@@ -15,6 +15,8 @@ export type CreateSaleBody = {
   userId: string;
   amount: number;
   timeZone: string;
+  localDate?: string;
+  localTime?: string;
 };
 
 export type UpdateSaleBody = {
@@ -47,6 +49,8 @@ export const saleSchema = {
     userId: t.String(),
     amount: t.Number(),
     timeZone: t.String(),
+    localDate: t.Optional(t.String()),
+    localTime: t.Optional(t.String()),
   }),
   updateSaleBody: t.Object({
     userId: t.String(),

@@ -4,6 +4,8 @@ import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import {
   getDateValidationMessage,
   getLocalDateStringInTimeZone,
+  getLocalTimeStringInTimeZone,
+  toUtcFromLocalDateTimeAndTimeZone,
   toUtcFromLocalDateAndTimeZone,
 } from "../../utils";
 
@@ -19,17 +21,32 @@ function shiftDays(localDate: string, days: number) {
   return toIsoDateOnly(shifted);
 }
 
-async function upsert(userId: string, amount: number, timeZone: string) {
+async function upsert(
+  userId: string,
+  amount: number,
+  timeZone: string,
+  localDate?: string,
+  localTime?: string,
+) {
   try {
-    const effectiveLocalDate = getLocalDateStringInTimeZone(timeZone);
-    const createdAt = toUtcFromLocalDateAndTimeZone(
+    const effectiveLocalDate =
+      localDate ?? getLocalDateStringInTimeZone(timeZone);
+    const effectiveLocalTime =
+      localTime ?? getLocalTimeStringInTimeZone(timeZone);
+    const createdAt = toUtcFromLocalDateTimeAndTimeZone(
       effectiveLocalDate,
+      effectiveLocalTime,
       timeZone,
     );
 
     // amount is treated as a delta.
     if (Math.abs(amount) <= ZERO_EPSILON) {
-      return getByUserId(userId, effectiveLocalDate, timeZone);
+      return getByUserId(
+        userId,
+        effectiveLocalDate,
+        effectiveLocalTime,
+        timeZone,
+      );
     }
 
     const result = await db
@@ -104,10 +121,15 @@ async function getById(id: string) {
 async function getByUserId(
   userId: string,
   localDate: string,
+  localTime: string,
   timeZone: string,
 ) {
   try {
-    const createdAt = toUtcFromLocalDateAndTimeZone(localDate, timeZone);
+    const createdAt = toUtcFromLocalDateTimeAndTimeZone(
+      localDate,
+      localTime,
+      timeZone,
+    );
 
     const result = await db
       .select()

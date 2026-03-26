@@ -14,10 +14,34 @@ function LogCard({
   onDelete: () => void;
   isDeleting?: boolean;
 }) {
-  const amountLabel = `${log.amount >= 0 ? "+" : "-"}${currency}${Math.abs(log.amount).toFixed(2)}`;
+  const actionType = log.actionType ?? "create";
+  const signedPrefix = actionType === "delete" ? "-" : "+";
+  const amountLabel = `${signedPrefix}${currency}${Math.abs(log.amount).toFixed(2)}`;
   const timestampLabel = new Date(
     log.updatedAt ?? log.createdAt,
   ).toLocaleString();
+
+  const actionMeta =
+    actionType === "update"
+      ? {
+          icon: "pencil-outline" as const,
+          iconColor: "#3b82f6",
+          iconBg: "#dbeafe",
+          label: "Updated sale",
+        }
+      : actionType === "delete"
+        ? {
+            icon: "trash-can-outline" as const,
+            iconColor: "#ef4444",
+            iconBg: "#fee2e2",
+            label: "Deleted sale",
+          }
+        : {
+            icon: "arrow-top-right" as const,
+            iconColor: "#22c55e",
+            iconBg: "#d8f7e4",
+            label: "Created sale",
+          };
 
   return (
     <XStack
@@ -37,15 +61,15 @@ function LogCard({
           width: 38,
           height: 38,
           borderRadius: 19,
-          backgroundColor: "#d8f7e4",
+          backgroundColor: actionMeta.iconBg,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
         <MaterialCommunityIcons
-          name={log.amount >= 0 ? "arrow-top-right" : "arrow-bottom-right"}
+          name={actionMeta.icon}
           size={18}
-          color={log.amount >= 0 ? "#22c55e" : "#ef4444"}
+          color={actionMeta.iconColor}
         />
       </YStack>
 
@@ -56,7 +80,7 @@ function LogCard({
           {amountLabel}
         </Paragraph>
         <Paragraph style={{ color: "#6b7280", fontSize: 11 }}>
-          {timestampLabel}
+          {actionMeta.label} - {timestampLabel}
         </Paragraph>
       </YStack>
 

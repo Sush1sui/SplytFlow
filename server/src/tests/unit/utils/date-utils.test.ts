@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   getDateValidationMessage,
   toUtcDay,
+  toUtcFromLocalDateTimeAndTimeZone,
   toUtcFromLocalDateAndTimeZone,
 } from "../../../utils";
 
@@ -45,6 +46,24 @@ describe("toUtcFromLocalDateAndTimeZone", () => {
     expect(() =>
       toUtcFromLocalDateAndTimeZone("2026-03-23", "Not/AZone"),
     ).toThrow("Invalid timeZone");
+  });
+});
+
+describe("toUtcFromLocalDateTimeAndTimeZone", () => {
+  test("converts local date-time in Asia/Manila to UTC", () => {
+    expect(
+      toUtcFromLocalDateTimeAndTimeZone(
+        "2026-03-23",
+        "09:30",
+        "Asia/Manila",
+      ).toISOString(),
+    ).toBe("2026-03-23T01:30:00.000Z");
+  });
+
+  test("rejects invalid time", () => {
+    expect(() =>
+      toUtcFromLocalDateTimeAndTimeZone("2026-03-23", "24:10", "UTC"),
+    ).toThrow("Invalid time format");
   });
 });
 

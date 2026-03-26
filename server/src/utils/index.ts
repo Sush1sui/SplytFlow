@@ -36,12 +36,15 @@ const DATE_FORMAT_ERROR_MESSAGE =
   "Invalid date format. Use YYYY-MM-DD (example: 2026-03-23)";
 const DATE_CALENDAR_ERROR_MESSAGE =
   "Invalid calendar date. Use a real date in YYYY-MM-DD format";
+const TIME_FORMAT_ERROR_MESSAGE =
+  "Invalid time format. Use HH:mm (example: 09:30)";
 const TIME_ZONE_ERROR_MESSAGE =
   "Invalid timeZone. Use a valid IANA time zone (example: Asia/Manila)";
 
 const DATE_VALIDATION_MESSAGE_PARTS = [
   "Invalid date format",
   "Invalid calendar date",
+  "Invalid time format",
   "Invalid timeZone",
   "cannot be after",
 ];
@@ -82,6 +85,31 @@ function parseIsoDateParts(value: string) {
     month: parsed.getUTCMonth() + 1,
     day: parsed.getUTCDate(),
   };
+}
+
+function parseTimeParts(value: string) {
+  const text = value.trim();
+  const match = /^(\d{2}):(\d{2})$/.exec(text);
+
+  if (!match) {
+    throw new Error(TIME_FORMAT_ERROR_MESSAGE);
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    throw new Error(TIME_FORMAT_ERROR_MESSAGE);
+  }
+
+  return { hours, minutes };
 }
 
 function getTimeZoneFormatter(timeZone: string) {
@@ -155,6 +183,16 @@ export function getLocalDateStringInTimeZone(
   return `${parts.year}-${padTwo(parts.month)}-${padTwo(parts.day)}`;
 }
 
+export function getLocalTimeStringInTimeZone(
+  timeZone: string,
+  date = new Date(),
+) {
+  assertValidTimeZone(timeZone);
+
+  const parts = getDatePartsInTimeZone(date, timeZone);
+  return `${padTwo(parts.hour)}:${padTwo(parts.minute)}`;
+}
+
 export function assertValidTimeZone(timeZone: string) {
   try {
     Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
@@ -168,9 +206,23 @@ export function toUtcFromLocalDateAndTimeZone(
   timeZone: string,
 ) {
   const { year, month, day } = parseIsoDateParts(localDate);
+  return toUtcFromLocalDateTimeAndTimeZone(
+    `${year}-${padTwo(month)}-${padTwo(day)}`,
+    "00:00",
+    timeZone,
+  );
+}
+
+export function toUtcFromLocalDateTimeAndTimeZone(
+  localDate: string,
+  localTime: string,
+  timeZone: string,
+) {
+  const { year, month, day } = parseIsoDateParts(localDate);
+  const { hours, minutes } = parseTimeParts(localTime);
   assertValidTimeZone(timeZone);
 
-  const utcGuess = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  const utcGuess = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
   const initialOffsetMs = getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
 
   let utcTimestamp = utcGuess - initialOffsetMs;
