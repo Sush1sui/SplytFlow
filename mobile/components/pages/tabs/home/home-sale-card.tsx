@@ -100,7 +100,7 @@ function HomeSaleCard({
             {Number.isInteger(salesChangePercent)
               ? salesChangePercent.toFixed(0)
               : salesChangePercent.toFixed(1)}
-            % (30d)
+            % (1d ago)
           </Paragraph>
         </XStack>
       </XStack>

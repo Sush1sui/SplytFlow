@@ -104,11 +104,9 @@ export default function SaleRecordModal({
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
-    onSubmit?.(
-      parsedAmount,
-      mode === "add" ? selectedLocalDate : undefined,
-      mode === "add" ? selectedLocalTime : undefined,
-    );
+    const dateToSubmit = mode === "add" ? selectedLocalDate : saleCreatedAt ? getInitialLocalDate(saleCreatedAt) : undefined;
+    const timeToSubmit = mode === "add" ? selectedLocalTime : saleCreatedAt ? getInitialLocalTime(saleCreatedAt) : undefined;
+    onSubmit?.(parsedAmount, dateToSubmit, timeToSubmit);
   }, [
     canSubmit,
     mode,
@@ -116,6 +114,7 @@ export default function SaleRecordModal({
     parsedAmount,
     selectedLocalDate,
     selectedLocalTime,
+    saleCreatedAt,
   ]);
 
   const handleOpenPicker = useCallback(() => {

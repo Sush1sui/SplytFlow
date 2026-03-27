@@ -21,6 +21,13 @@ function shiftDays(localDate: string, days: number) {
   return toIsoDateOnly(shifted);
 }
 
+function getLocalDayUtcBounds(localDate: string, timeZone: string) {
+  const start = toUtcFromLocalDateAndTimeZone(localDate, timeZone);
+  const nextLocalDate = shiftDays(localDate, 1);
+  const endExclusive = toUtcFromLocalDateAndTimeZone(nextLocalDate, timeZone);
+  return { start, endExclusive };
+}
+
 async function upsert(
   userId: string,
   amount: number,
@@ -41,24 +48,41 @@ async function upsert(
 
     // amount is treated as a delta.
     if (Math.abs(amount) <= ZERO_EPSILON) {
-      return getByUserId(
-        userId,
-        effectiveLocalDate,
-        effectiveLocalTime,
-        timeZone,
-      );
+      return getByUserId(userId, effectiveLocalDate, timeZone);
     }
 
-    const result = await db
-      .insert(sales)
-      .values({ userId, amount, createdAt })
-      .onConflictDoUpdate({
-        target: [sales.userId, sales.createdAt],
-        set: {
-          amount: sql`${sales.amount} + EXCLUDED.amount`,
-        },
-      })
-      .returning();
+    const { start, endExclusive } = getLocalDayUtcBounds(
+      effectiveLocalDate,
+      timeZone,
+    );
+
+    const existingRows = await db
+      .select()
+      .from(sales)
+      .where(
+        and(
+          eq(sales.userId, userId),
+          gte(sales.createdAt, start),
+          lt(sales.createdAt, endExclusive),
+        ),
+      )
+      .orderBy(asc(sales.createdAt))
+      .limit(1);
+
+    const existing = existingRows[0];
+
+    const result = existing
+      ? await db
+          .update(sales)
+          .set({
+            amount: sql`${sales.amount} + ${amount}`,
+          })
+          .where(and(eq(sales.id, existing.id), eq(sales.userId, userId)))
+          .returning()
+      : await db
+          .insert(sales)
+          .values({ userId, amount, createdAt })
+          .returning();
 
     const sale = result[0];
 
@@ -121,20 +145,23 @@ async function getById(id: string) {
 async function getByUserId(
   userId: string,
   localDate: string,
-  localTime: string,
   timeZone: string,
 ) {
   try {
-    const createdAt = toUtcFromLocalDateTimeAndTimeZone(
-      localDate,
-      localTime,
-      timeZone,
-    );
+    const { start, endExclusive } = getLocalDayUtcBounds(localDate, timeZone);
 
     const result = await db
       .select()
       .from(sales)
-      .where(and(eq(sales.userId, userId), eq(sales.createdAt, createdAt)));
+      .where(
+        and(
+          eq(sales.userId, userId),
+          gte(sales.createdAt, start),
+          lt(sales.createdAt, endExclusive),
+        ),
+      )
+      .orderBy(asc(sales.createdAt))
+      .limit(1);
 
     return result[0] ?? null;
   } catch (error) {

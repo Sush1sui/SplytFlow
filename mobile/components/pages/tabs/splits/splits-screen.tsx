@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Paragraph, XStack, YStack } from "tamagui";
 import SplitGroupCard from "./split-group-card";
 import NoSplitCard from "./no-split-card";
+import LoadingSplitGroups from "./loading-split-groups";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { fetchSplitGroupsWithSplits } from "@/lib/store/splitSlice";
 import { useAuthState } from "@/lib/context/auth-context";
@@ -11,9 +12,11 @@ import useTabResponsive from "../shared/use-tab-responsive";
 
 export default function SplitsScreen() {
   const dispatch = useAppDispatch();
-  const { user } = useAuthState();
+  const { user, loading: UserLoading } = useAuthState();
   const { font, space } = useTabResponsive();
-  const { splitGroups, activeSplitGroupId } = useAppSelector((state) => state.split);
+  const { splitGroups, activeSplitGroupId, status } = useAppSelector(
+    (state) => state.split,
+  );
 
   useEffect(() => {
     if (user?.id) {
@@ -27,8 +30,38 @@ export default function SplitsScreen() {
         ...group,
         totalPercent: group.splits.reduce((sum, split) => sum + split.value, 0),
       })),
-    [splitGroups]
+    [splitGroups],
   );
+
+  if (UserLoading || status === "loading") {
+    return (
+      <YStack
+        style={{ flex: 1, backgroundColor: "#f4f6fb", marginTop: space(16) }}
+      >
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingTop: 56,
+            paddingBottom: 110,
+          }}
+        >
+          <YStack
+            style={{
+              width: 150,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: "#e7ecf5",
+              marginBottom: 20,
+            }}
+          />
+          <YStack gap="$3">
+            <LoadingSplitGroups />
+          </YStack>
+        </ScrollView>
+      </YStack>
+    );
+  }
 
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>

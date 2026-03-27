@@ -58,26 +58,8 @@ export const setActiveSplitGroup = createAsyncThunk(
 export const fetchSplitGroupsWithSplits = createAsyncThunk(
   "split/fetchSplitGroupsWithSplits",
   async (userId: string) => {
-    const groups = await apiFetcher<SplitGroupRow[]>(
-      `/splits/categories?userId=${encodeURIComponent(userId)}`,
-    );
-
-    const splitGroups = await Promise.all(
-      groups.map(async (group) => {
-        try {
-          const splits = await apiFetcher<SplitRow[]>(
-            `/splits?splitCategoryId=${encodeURIComponent(group.id)}&userId=${encodeURIComponent(userId)}`,
-          );
-
-          return { ...group, splits };
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 404) {
-            return { ...group, splits: [] };
-          }
-
-          throw error;
-        }
-      }),
+    const splitGroups = await apiFetcher<SplitGroupWithSplits[]>(
+      `/splits/categories?userId=${encodeURIComponent(userId)}&includeSplits=true`,
     );
 
     return splitGroups;

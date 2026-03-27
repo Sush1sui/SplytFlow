@@ -18,42 +18,7 @@ import {
   UpdateSalePayload,
 } from "@/types/sale.types";
 import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
-
-const RANGE_PRESETS: SalesRangePreset[] = [
-  "today",
-  "1d",
-  "2d",
-  "1w",
-  "1m",
-  "3m",
-  "1y",
-  "7d",
-  "prev7d",
-  "30d",
-  "prev30d",
-  "90d",
-  "prev90d",
-  "365d",
-  "prev365d",
-];
-
-const PRESET_TO_KEY: Record<SalesRangePreset, keyof SalesTotals> = {
-  today: "today",
-  "1d": "oneDayAgo",
-  "2d": "twoDaysAgo",
-  "1w": "oneWeekAgo",
-  "1m": "oneMonthAgo",
-  "3m": "threeMonthsAgo",
-  "1y": "oneYearAgo",
-  "7d": "last7Days",
-  prev7d: "prior7Days",
-  "30d": "last30Days",
-  prev30d: "prior30Days",
-  "90d": "last90Days",
-  prev90d: "prior90Days",
-  "365d": "last365Days",
-  prev365d: "prior365Days",
-};
+import { RANGE_PRESETS, PRESET_TO_KEY } from "@/constants/sales";
 
 function upsertHistoryRow(history: SaleRow[], row: SaleRow): SaleRow[] {
   const index = history.findIndex((item) => item.id === row.id);
@@ -67,6 +32,7 @@ function upsertHistoryRow(history: SaleRow[], row: SaleRow): SaleRow[] {
 export const fetchSales = createAsyncThunk(
   "sales/fetchSales",
   async (userId: string) => {
+    const presets = RANGE_PRESETS;
     const totals: SalesTotals = {
       today: 0,
       oneDayAgo: 0,
@@ -85,7 +51,7 @@ export const fetchSales = createAsyncThunk(
       prior365Days: 0,
     };
     const results = await Promise.all(
-      RANGE_PRESETS.map(async (preset) => {
+      presets.map(async (preset) => {
         const { startLocalDate, endLocalDate, timeZone } =
           getSalesRangeQueryByPreset(preset);
         const query = new URLSearchParams({
@@ -100,7 +66,6 @@ export const fetchSales = createAsyncThunk(
           );
           return { preset, total: sumSaleRows(rows) };
         } catch (error) {
-          // No rows in a date bucket should behave as zero, not as a failure.
           if (error instanceof ApiError && error.status === 404)
             return { preset, total: 0 };
           throw error;
@@ -113,6 +78,53 @@ export const fetchSales = createAsyncThunk(
     }
 
     return totals;
+  },
+);
+
+export const fetchSalesRange = createAsyncThunk(
+  "sales/fetchSalesRange",
+  async ({ userId, preset }: { userId: string; preset: SalesRangePreset }) => {
+    const totals: SalesTotals = {
+      today: 0,
+      oneDayAgo: 0,
+      twoDaysAgo: 0,
+      oneWeekAgo: 0,
+      oneMonthAgo: 0,
+      threeMonthsAgo: 0,
+      oneYearAgo: 0,
+      last7Days: 0,
+      prior7Days: 0,
+      last30Days: 0,
+      prior30Days: 0,
+      last90Days: 0,
+      prior90Days: 0,
+      last365Days: 0,
+      prior365Days: 0,
+    };
+
+    const { startLocalDate, endLocalDate, timeZone } =
+      getSalesRangeQueryByPreset(preset);
+    const query = new URLSearchParams({
+      userId,
+      startLocalDate,
+      endLocalDate,
+      timeZone,
+    });
+
+    try {
+      const rows = await apiFetcher<SaleRow[]>(
+        `${API_BASE_URL}${API_ENDPOINTS.SALE.RANGE}?${query.toString()}`,
+      );
+      totals[PRESET_TO_KEY[preset]] = sumSaleRows(rows);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        totals[PRESET_TO_KEY[preset]] = 0;
+      } else {
+        throw error;
+      }
+    }
+
+    return { preset, total: totals[PRESET_TO_KEY[preset]] };
   },
 );
 
@@ -143,6 +155,14 @@ export const addSale = createAsyncThunk(
   async ({ userId, amount, localDate, localTime }: AddSalePayload) => {
     const timeZone = getLocalTimeZone();
 
+    console.log("Adding sale with payload:", {
+      userId,
+      amount,
+      localDate,
+      localTime,
+      timeZone,
+    });
+
     const result = await apiFetcher<SaleRow>(
       `${API_BASE_URL}${API_ENDPOINTS.SALE.CREATE}`,
       {
@@ -162,7 +182,7 @@ export const addSale = createAsyncThunk(
     const recentLog: RecentLogType = {
       id: result.id,
       userId: result.userId,
-      amount: result.amount,
+      amount,
       actionType: "create",
       createdAt: new Date().toISOString(),
     };
@@ -262,6 +282,23 @@ const initialState: SaleState = {
   historyError: null,
   status: "idle",
   error: null,
+  rangeStatus: {
+    today: "idle",
+    "1d": "idle",
+    "2d": "idle",
+    "1w": "idle",
+    "1m": "idle",
+    "3m": "idle",
+    "1y": "idle",
+    "7d": "idle",
+    prev7d: "idle",
+    "30d": "idle",
+    prev30d: "idle",
+    "90d": "idle",
+    prev90d: "idle",
+    "365d": "idle",
+    prev365d: "idle",
+  } as Record<SalesRangePreset, "idle" | "loading" | "succeeded" | "failed">,
 };
 
 const saleSlice = createSlice({
@@ -281,6 +318,17 @@ const saleSlice = createSlice({
       .addCase(fetchSales.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.error.message ?? "Failed to fetch sales";
+      })
+      .addCase(fetchSalesRange.pending, (state, action) => {
+        state.rangeStatus[action.meta.arg.preset] = "loading";
+      })
+      .addCase(fetchSalesRange.fulfilled, (state, action) => {
+        state.rangeStatus[action.payload.preset] = "succeeded";
+        state.sales[PRESET_TO_KEY[action.payload.preset]] =
+          action.payload.total;
+      })
+      .addCase(fetchSalesRange.rejected, (state, action) => {
+        state.rangeStatus[action.meta.arg.preset] = "failed";
       })
       .addCase(fetchSalesHistory.pending, (state) => {
         state.historyStatus = "loading";

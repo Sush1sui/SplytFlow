@@ -20,14 +20,18 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
     "/",
     async ({ query, set }) => {
       try {
-        const { userId } = query;
+        const { userId, includeSplits } = query;
 
         if (!userId) {
           set.status = 400;
           return { error: "userId is required" };
         }
 
-        const categories = await splitService.getAll(userId);
+        const shouldIncludeSplits = includeSplits === "true";
+        const categories = await splitService.getAll(
+          userId,
+          shouldIncludeSplits,
+        );
 
         set.status = 200;
         return categories;
@@ -55,7 +59,7 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
     async ({ params, query, set }) => {
       try {
         const { id } = params;
-        const { userId } = query;
+        const { userId, includeSplits } = query;
 
         if (!id) {
           set.status = 400;
@@ -67,7 +71,12 @@ const splitCategory = new Elysia({ prefix: "/splits/categories" })
           return { error: "userId is required" };
         }
 
-        const category = await splitService.getById(id, userId);
+        const shouldIncludeSplits = includeSplits === "true";
+        const category = await splitService.getById(
+          id,
+          userId,
+          shouldIncludeSplits,
+        );
 
         if (!category) {
           set.status = 404;

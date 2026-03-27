@@ -54,6 +54,7 @@ export type SaleState = {
   historyError: string | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  rangeStatus: Record<SalesRangePreset, "idle" | "loading" | "succeeded" | "failed">;
 };
 
 export type RecentLogType = {

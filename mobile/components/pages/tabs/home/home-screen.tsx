@@ -10,7 +10,7 @@ import {
   hydrateLogs,
 } from "@/lib/store/logSlice";
 import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
-import { fetchSales } from "@/lib/store/saleSlice";
+import { fetchSales, fetchSalesRange } from "@/lib/store/saleSlice";
 import useToast from "@/lib/context/toast-context";
 import LogCard from "./log-card";
 import NoLogCard from "./no-log-card";
@@ -31,7 +31,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const today = sales.sales.today ?? 0;
-    const prev30 = sales.sales.oneMonthAgo ?? 0;
+    const yesterday = sales.sales.oneDayAgo ?? 0;
 
     const activeSplit = splits.splitGroups.find(
       (group) => group.id === splits.activeSplitGroupId,
@@ -43,7 +43,7 @@ export default function HomeScreen() {
 
     setTotalSales(today);
     setNetSales(computeNetSale(today, totalSplitPct));
-    setSalesChangePercent(computePercentChange(today, prev30));
+    setSalesChangePercent(computePercentChange(today, yesterday));
   }, [sales.sales, splits.splitGroups, splits.activeSplitGroupId]);
 
   useEffect(() => {
@@ -51,6 +51,7 @@ export default function HomeScreen() {
 
     if (user?.id) {
       dispatch(fetchSales(user.id));
+      dispatch(fetchSalesRange({ userId: user.id, preset: "1d" }));
     }
   }, [dispatch, user?.id]);
 
@@ -145,7 +146,7 @@ export default function HomeScreen() {
           ) : (
             logs.map((log, index) => (
               <LogCard
-                key={`${log.id}-${log.updatedAt ?? log.createdAt}-${index}`}
+                key={`${log.id}-${index}`}
                 log={log}
                 currency="$"
                 onDelete={() => handleDeleteLog(index)}

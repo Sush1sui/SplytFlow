@@ -2,6 +2,7 @@ import { RecentLogType } from "@/types/sale.types";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { memo } from "react";
 import { Button, XStack, YStack, Paragraph } from "tamagui";
+import { formatDateTime } from "@/lib/utils/sale";
 
 function LogCard({
   log,
@@ -17,9 +18,7 @@ function LogCard({
   const actionType = log.actionType ?? "create";
   const signedPrefix = actionType === "delete" ? "-" : "+";
   const amountLabel = `${signedPrefix}${currency}${Math.abs(log.amount).toFixed(2)}`;
-  const timestampLabel = new Date(
-    log.updatedAt ?? log.createdAt,
-  ).toLocaleString();
+  const timestampLabel = formatDateTime(log.createdAt);
 
   const actionMeta =
     actionType === "update"

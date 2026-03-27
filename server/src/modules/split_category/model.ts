@@ -1,6 +1,9 @@
 import { t } from "elysia";
 
-export type GetSplitCategoriesQuery = { userId: string };
+export type GetSplitCategoriesQuery = {
+  userId: string;
+  includeSplits?: string;
+};
 
 export type GetSplitCategoryByIdQuery = { userId: string };
 
@@ -16,6 +19,7 @@ export const splitCategorySchema = {
   }),
   splitCategoryUserQuery: t.Object({
     userId: t.String(),
+    includeSplits: t.Optional(t.Union([t.Literal("true"), t.Literal("false")])),
   }),
   splitCategoryUpsertBody: t.Object({
     userId: t.String(),
@@ -25,3 +29,19 @@ export const splitCategorySchema = {
     userId: t.String(),
   }),
 };
+
+export interface SplitCategoryWithSplits {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  splits: {
+    id: string;
+    splitCategoryId: string;
+    name: string;
+    value: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
+}

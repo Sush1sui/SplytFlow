@@ -56,7 +56,7 @@ export default function SaleHistoryRow({
           {sale.amount.toFixed(2)}
         </Paragraph>
         <Paragraph style={{ color: "#64748b", fontSize: 12 }}>
-          {formatDateTime(sale.updatedAt ?? sale.createdAt)}
+          {formatDateTime(sale.createdAt)}
         </Paragraph>
       </YStack>
 
