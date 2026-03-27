@@ -1,48 +1,40 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Paragraph, XStack, YStack } from "tamagui";
 import SplitGroupCard from "./split-group-card";
+import NoSplitCard from "./no-split-card";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { fetchSplitGroupsWithSplits } from "@/lib/store/splitSlice";
+import { useAuthState } from "@/lib/context/auth-context";
 import useTabResponsive from "../shared/use-tab-responsive";
 
-const expandedItems = [
-  {
-    icon: "flash-outline" as const,
-    iconColor: "#3b82f6",
-    iconBg: "#dbeafe",
-    label: "Electricity Bill",
-    value: "10%",
-  },
-  {
-    icon: "water-outline" as const,
-    iconColor: "#06b6d4",
-    iconBg: "#ccfbf1",
-    label: "Water Bill",
-    value: "5%",
-  },
-  {
-    icon: "bus" as const,
-    iconColor: "#ca8a04",
-    iconBg: "#fef9c3",
-    label: "Transportation",
-    value: "10%",
-  },
-  {
-    icon: "food-outline" as const,
-    iconColor: "#ea580c",
-    iconBg: "#ffedd5",
-    label: "Food Allowance",
-    value: "20%",
-  },
-];
-
 export default function SplitsScreen() {
+  const dispatch = useAppDispatch();
+  const { user } = useAuthState();
   const { font, space } = useTabResponsive();
+  const { splitGroups, activeSplitGroupId } = useAppSelector((state) => state.split);
+
+  useEffect(() => {
+    if (user?.id) {
+      dispatch(fetchSplitGroupsWithSplits(user.id));
+    }
+  }, [dispatch, user?.id]);
+
+  const groupsWithTotals = useMemo(
+    () =>
+      splitGroups.map((group) => ({
+        ...group,
+        totalPercent: group.splits.reduce((sum, split) => sum + split.value, 0),
+      })),
+    [splitGroups]
+  );
 
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
       <ScrollView
         contentContainerStyle={{
+          flexGrow: 1,
           padding: 20,
           paddingTop: 56,
           paddingBottom: 110,
@@ -76,18 +68,21 @@ export default function SplitsScreen() {
           </YStack>
         </XStack>
 
-        <YStack style={{ marginTop: space(16) }} gap="$3">
-          <SplitGroupCard
-            title="Default Daily Splits (V1)"
-            total="45%"
-            active
-            expanded
-            items={expandedItems}
-          />
-
-          <SplitGroupCard title="Weekend Special (V2)" total="30%" />
-          <SplitGroupCard title="Low Season Config (V3)" total="25%" />
-        </YStack>
+        {splitGroups.length === 0 ? (
+          <NoSplitCard />
+        ) : (
+          <YStack style={{ marginTop: space(16) }} gap="$3">
+            {groupsWithTotals.map((group) => (
+              <SplitGroupCard
+                key={group.id}
+                title={group.name}
+                totalPercent={group.totalPercent}
+                active={group.id === activeSplitGroupId}
+                splits={group.splits}
+              />
+            ))}
+          </YStack>
+        )}
       </ScrollView>
     </YStack>
   );

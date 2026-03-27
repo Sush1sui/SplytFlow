@@ -1,32 +1,35 @@
-import React from "react";
+import React, { useState, memo, useMemo } from "react";
+import { Pressable } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
+import type { SplitRow } from "@/types/split.types";
+import { getSplitIcon } from "@/constants/split-icons";
 import useTabResponsive from "../shared/use-tab-responsive";
-
-type SplitItem = {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  iconColor: string;
-  iconBg: string;
-  label: string;
-  value: string;
-};
 
 type SplitGroupCardProps = {
   title: string;
-  total: string;
+  totalPercent: number;
   active?: boolean;
-  expanded?: boolean;
-  items?: SplitItem[];
+  splits: SplitRow[];
 };
 
-export default function SplitGroupCard({
+const SplitGroupCard = memo(function SplitGroupCard({
   title,
-  total,
+  totalPercent,
   active,
-  expanded,
-  items,
+  splits,
 }: SplitGroupCardProps) {
   const { font, space } = useTabResponsive();
+  const [expanded, setExpanded] = useState(false);
+
+  const items = useMemo(
+    () =>
+      splits.map((split) => ({
+        ...split,
+        ...getSplitIcon(split.name),
+      })),
+    [splits]
+  );
 
   return (
     <YStack
@@ -39,7 +42,8 @@ export default function SplitGroupCard({
       }}
       gap="$2"
     >
-      <XStack style={{ alignItems: "center", justifyContent: "space-between" }}>
+      <Pressable onPress={() => setExpanded(!expanded)}>
+        <XStack style={{ alignItems: "center", justifyContent: "space-between" }}>
         <XStack
           style={{ alignItems: "center", flex: 1, paddingRight: 8 }}
           gap="$2"
@@ -89,16 +93,17 @@ export default function SplitGroupCard({
           />
         </YStack>
       </XStack>
+      </Pressable>
 
       <Paragraph style={{ color: "#64748b", fontSize: font(13, 11, 14) }}>
-        Total Deduction: {total}
+        Total Deduction: {totalPercent}%
       </Paragraph>
 
-      {expanded && items ? (
+      {expanded && items.length > 0 && (
         <YStack gap="$2" style={{ paddingTop: 6 }}>
           {items.map((item) => (
             <XStack
-              key={item.label}
+              key={item.id}
               style={{
                 alignItems: "center",
                 borderRadius: 12,
@@ -132,7 +137,7 @@ export default function SplitGroupCard({
                   fontSize: font(17, 14, 18),
                 }}
               >
-                {item.label}
+                {item.name}
               </Paragraph>
 
               <Paragraph
@@ -142,31 +147,33 @@ export default function SplitGroupCard({
                   fontSize: font(18, 15, 20),
                 }}
               >
-                {item.value}
+                {item.value}%
               </Paragraph>
             </XStack>
           ))}
 
-          <YStack
-            style={{
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: "#bde8d0",
-              backgroundColor: "#ecfdf3",
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-            }}
-          >
-            <Paragraph
+          {totalPercent < 100 && (
+            <YStack
               style={{
-                color: "#166534",
-                fontSize: font(15, 12, 16),
-                fontWeight: "700",
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: "#bde8d0",
+                backgroundColor: "#ecfdf3",
+                paddingVertical: 10,
+                paddingHorizontal: 12,
               }}
             >
-              Net Profit Remaining 55%
-            </Paragraph>
-          </YStack>
+              <Paragraph
+                style={{
+                  color: "#166534",
+                  fontSize: font(15, 12, 16),
+                  fontWeight: "700",
+                }}
+              >
+                Net Profit Remaining {100 - totalPercent}%
+              </Paragraph>
+            </YStack>
+          )}
 
           <Button
             style={{
@@ -187,7 +194,9 @@ export default function SplitGroupCard({
             </Paragraph>
           </Button>
         </YStack>
-      ) : null}
+      )}
     </YStack>
   );
-}
+});
+
+export default SplitGroupCard;
