@@ -1,21 +1,20 @@
 import { memo } from "react";
 import { YStack, Paragraph } from "tamagui";
+import useTabResponsive from "../shared/use-tab-responsive";
 
 function AnalyticsFilterBadge({
   index,
   range,
   selected,
-  space,
-  font,
   setSelectedRange,
 }: {
   index: number;
   range: string;
   selected: boolean;
-  space: (size: number) => number;
-  font: (size: number, min?: number, max?: number) => number;
   setSelectedRange: React.Dispatch<React.SetStateAction<number>>;
 }) {
+  const { space, font } = useTabResponsive();
+
   return (
     <YStack
       style={{

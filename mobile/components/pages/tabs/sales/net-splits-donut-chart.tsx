@@ -1,6 +1,7 @@
 import React from "react";
 import { YStack, Paragraph } from "tamagui";
 import SalesDonutChart from "./sales-donut-chart";
+import useTabResponsive from "../shared/use-tab-responsive";
 
 type Segment = {
   label: string;
@@ -9,16 +10,14 @@ type Segment = {
 };
 
 export default function NetSplitsDonutChart({
-  space,
-  font,
   segments,
   netSalesPercentage,
 }: {
-  space: (value: number) => number;
-  font: (value: number, narrowValue?: number, wideValue?: number) => number;
   segments: Segment[];
   netSalesPercentage: number;
 }) {
+  const { space, font } = useTabResponsive();
+
   return (
     <YStack
       style={{

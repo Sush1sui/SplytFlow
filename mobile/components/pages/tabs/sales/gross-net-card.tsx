@@ -1,9 +1,8 @@
 import React from "react";
 import { XStack, YStack, Paragraph } from "tamagui";
+import useTabResponsive from "../shared/use-tab-responsive";
 
 export default function GrossNetCard({
-  space,
-  font,
   isNarrow,
   grossSales,
   netSales,
@@ -11,8 +10,6 @@ export default function GrossNetCard({
   netChange,
   comparisonLabel,
 }: {
-  space: (value: number) => number;
-  font: (value: number, narrowValue?: number, wideValue?: number) => number;
   isNarrow: boolean;
   grossSales: number;
   netSales: number;
@@ -20,6 +17,8 @@ export default function GrossNetCard({
   netChange: number;
   comparisonLabel: string;
 }) {
+  const { space, font } = useTabResponsive();
+
   const formatUSD = (value: number) =>
     `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

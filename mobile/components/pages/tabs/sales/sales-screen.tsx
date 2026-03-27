@@ -263,16 +263,12 @@ export default function SalesScreen() {
               index={index}
               range={range}
               selected={index === selectedRange}
-              space={space}
-              font={font}
               setSelectedRange={setSelectedRange}
             />
           ))}
         </XStack>
 
         <GrossNetCard
-          space={space}
-          font={font}
           isNarrow={isNarrow}
           grossSales={grossSales}
           netSales={netSales}
@@ -282,8 +278,6 @@ export default function SalesScreen() {
         />
 
         <NetSplitsDonutChart
-          space={space}
-          font={font}
           segments={donutData.segments}
           netSalesPercentage={donutData.netSalesPercentage}
         />

@@ -1,0 +1,226 @@
+import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, ScrollView } from "react-native";
+import { Button, Paragraph, YStack } from "tamagui";
+import { useAuthState } from "@/lib/context/auth-context";
+import { ApiError, apiFetcher } from "@/lib/api";
+import { formatDateOnly, getLocalTimeZone } from "@/lib/utils/sale";
+import { SaleRow } from "@/types/sale.types";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { deleteSale, fetchSales, updateSale } from "@/lib/store/saleSlice";
+import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
+import { MONTH_NAMES } from "@/constants/sales";
+import HistoryHeader from "./history-header";
+import DatePickerRow from "./date-picker-row";
+import StatsRow from "./stats-row";
+import LoadingRows from "./loading-rows";
+import PickerModal from "./picker-modal";
+import SaleHistoryRow from "../sale-history-row";
+import SaleRecordModal from "../sale-record-modal";
+
+export default function SaleHistoryPage() {
+  const router = useRouter();
+  const { user } = useAuthState();
+  const dispatch = useAppDispatch();
+  const today = new Date();
+
+  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
+  const [rows, setRows] = useState<SaleRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [pickerType, setPickerType] = useState<"month" | "year" | null>(null);
+  const [editingSale, setEditingSale] = useState<SaleRow | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const loadHistory = React.useCallback(async () => {
+    if (!user?.id) {
+      setRows([]);
+      return;
+    }
+
+    const startLocalDate = formatDateOnly(
+      new Date(selectedYear, selectedMonth, 1),
+    );
+    const endLocalDate = formatDateOnly(
+      new Date(selectedYear, selectedMonth + 1, 0),
+    );
+    const timeZone = getLocalTimeZone();
+
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        userId: user.id,
+        startLocalDate,
+        endLocalDate,
+        timeZone,
+      });
+
+      const data = await apiFetcher<SaleRow[]>(
+        `${API_BASE_URL}${API_ENDPOINTS.SALE.RANGE}?${query.toString()}`,
+      );
+
+      setRows(
+        [...data].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      );
+    } catch (error) {
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, selectedYear, user?.id]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, index) => currentYear - index);
+  }, []);
+
+  const totalAmount = useMemo(
+    () => rows.reduce((sum, row) => sum + row.amount, 0),
+    [rows],
+  );
+
+  const pickerOptions =
+    pickerType === "month"
+      ? MONTH_NAMES.map((month, index) => ({ label: month, value: index }))
+      : availableYears.map((year) => ({ label: String(year), value: year }));
+
+  const selectedValue = pickerType === "month" ? selectedMonth : selectedYear;
+
+  const handleSelectOption = (value: number) => {
+    if (pickerType === "month") {
+      setSelectedMonth(value);
+    } else if (pickerType === "year") {
+      setSelectedYear(value);
+    }
+    setPickerType(null);
+  };
+
+  const handleOpenEditModal = (sale: SaleRow) => {
+    setEditingSale(sale);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    if (mutating) return;
+    setModalVisible(false);
+    setEditingSale(null);
+  };
+
+  const handleSubmitEdit = async (amount: number) => {
+    if (!user?.id || !editingSale) return;
+
+    setMutating(true);
+    try {
+      await dispatch(
+        updateSale({ id: editingSale.id, userId: user.id, amount }),
+      ).unwrap();
+      await Promise.all([
+        loadHistory(),
+        dispatch(fetchSales(user.id)).unwrap(),
+      ]);
+      setModalVisible(false);
+      setEditingSale(null);
+    } catch {
+      Alert.alert("Could not update sale", "Please try again.");
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const handleDeleteSale = (sale: SaleRow) => {
+    if (!user?.id) return;
+
+    Alert.alert("Delete sale record?", "This action cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setMutating(true);
+          try {
+            await dispatch(
+              deleteSale({ id: sale.id, userId: user.id, amount: sale.amount }),
+            ).unwrap();
+            await Promise.all([
+              loadHistory(),
+              dispatch(fetchSales(user.id)).unwrap(),
+            ]);
+          } catch {
+            Alert.alert("Could not delete sale", "Please try again.");
+          } finally {
+            setMutating(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: 20,
+          paddingTop: 56,
+          paddingBottom: 110,
+        }}
+      >
+        <HistoryHeader />
+
+        <DatePickerRow
+          monthLabel={MONTH_NAMES[selectedMonth]}
+          yearLabel={String(selectedYear)}
+          onSelectMonth={() => setPickerType("month")}
+          onSelectYear={() => setPickerType("year")}
+        />
+
+        <StatsRow recordCount={rows.length} totalAmount={totalAmount} />
+
+        <YStack style={{ marginTop: 12 }} gap="$3">
+          {loading ? (
+            <LoadingRows />
+          ) : rows.length === 0 ? (
+            <Paragraph style={{ color: "#64748b", fontSize: 14 }}>
+              No records for the selected month and year.
+            </Paragraph>
+          ) : (
+            rows.map((sale) => (
+              <SaleHistoryRow
+                key={sale.id}
+                sale={sale}
+                onEdit={() => handleOpenEditModal(sale)}
+                onDelete={() => handleDeleteSale(sale)}
+                disabled={mutating}
+              />
+            ))
+          )}
+        </YStack>
+      </ScrollView>
+
+      <PickerModal
+        visible={pickerType !== null}
+        options={pickerOptions}
+        selectedValue={selectedValue}
+        onSelect={handleSelectOption}
+        onClose={() => setPickerType(null)}
+      />
+
+      <SaleRecordModal
+        visible={modalVisible}
+        mode="edit"
+        saleCreatedAt={editingSale?.createdAt ?? null}
+        initialAmount={editingSale?.amount ?? null}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitEdit}
+        pending={mutating}
+      />
+    </YStack>
+  );
+}
