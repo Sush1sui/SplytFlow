@@ -1,9 +1,8 @@
-import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView } from "react-native";
-import { Button, Paragraph, YStack } from "tamagui";
+import { Paragraph, YStack } from "tamagui";
 import { useAuthState } from "@/lib/context/auth-context";
-import { ApiError, apiFetcher } from "@/lib/api";
+import { apiFetcher } from "@/lib/api";
 import { formatDateOnly, getLocalTimeZone } from "@/lib/utils/sale";
 import { SaleRow } from "@/types/sale.types";
 import { useAppDispatch } from "@/lib/store/hooks";
@@ -19,7 +18,6 @@ import SaleHistoryRow from "../sale-history-row";
 import SaleRecordModal from "../sale-record-modal";
 
 export default function SaleHistoryPage() {
-  const router = useRouter();
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
   const today = new Date();

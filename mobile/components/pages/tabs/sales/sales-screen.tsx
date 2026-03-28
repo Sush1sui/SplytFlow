@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { SaleRow } from "@/types/sale.types";
@@ -17,6 +17,7 @@ import {
   deleteSale,
   fetchSales,
   fetchSalesRange,
+  invalidateSalesCache,
   updateSale,
 } from "@/lib/store/saleSlice";
 import { fetchSplitGroupsWithSplits } from "@/lib/store/splitSlice";
@@ -32,7 +33,13 @@ import {
   ranges,
   RANGE_PRESET_MAPPING,
 } from "@/constants/sales";
-import { Skeleton } from "@/components/skeleton";
+import { Skeleton, SkeletonGroup } from "@/components/skeleton";
+
+/** Re-fetch only if stale (> 60 s since last successful fetch). */
+const CACHE_TTL = 60_000;
+function isStale(lastFetched: number | null): boolean {
+  return lastFetched === null || Date.now() - lastFetched > CACHE_TTL;
+}
 
 const VIEW_ALL_BTN = {
   backgroundColor: "transparent",
@@ -60,18 +67,20 @@ const HISTORY_ROW_STYLE = {
 
 function HistoryPreviewSkeleton() {
   return (
-    <YStack gap="$2.5">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <YStack
-          key={`history-loading-row-${index}`}
-          style={HISTORY_ROW_STYLE}
-          gap="$2"
-        >
-          <Skeleton width={120} height={14} borderRadius={7} />
-          <Skeleton width={170} height={12} borderRadius={6} />
-        </YStack>
-      ))}
-    </YStack>
+    <SkeletonGroup>
+      <YStack gap="$2.5">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <YStack
+            key={`history-loading-row-${index}`}
+            style={HISTORY_ROW_STYLE}
+            gap="$2"
+          >
+            <Skeleton width={130} height={14} borderRadius={7} />
+            <Skeleton width={180} height={12} borderRadius={6} />
+          </YStack>
+        ))}
+      </YStack>
+    </SkeletonGroup>
   );
 }
 
@@ -123,6 +132,7 @@ export default function SalesScreen() {
   const [mutating, setMutating] = useState(false);
   const [historyRows, setHistoryRows] = useState<SaleRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const saleState = useAppSelector((state) => state.sale);
   const splitState = useAppSelector((state) => state.split);
@@ -160,19 +170,34 @@ export default function SalesScreen() {
 
   const selectedPreset = RANGE_PRESET_MAPPING[selectedRange] ?? "today";
 
-  const refreshAllData = useCallback(async () => {
-    if (!user?.id) return;
+  const refreshAllData = useCallback(
+    async (force = false) => {
+      if (!user?.id) return;
+      if (!force && !isStale(saleState.lastFetched)) return;
 
+      try {
+        await Promise.all([
+          dispatch(fetchSales(user.id)).unwrap(),
+          dispatch(fetchSplitGroupsWithSplits(user.id)).unwrap(),
+          refreshHistoryRows(),
+        ]);
+      } catch {
+        // Errors handled in individual thunks
+      }
+    },
+    [dispatch, refreshHistoryRows, user?.id, saleState.lastFetched],
+  );
+
+  /** Pull-to-refresh: bypass TTL and force a fresh fetch. */
+  const handleRefresh = useCallback(async () => {
+    dispatch(invalidateSalesCache());
+    setRefreshing(true);
     try {
-      await Promise.all([
-        dispatch(fetchSales(user.id)).unwrap(),
-        dispatch(fetchSplitGroupsWithSplits(user.id)).unwrap(),
-        refreshHistoryRows(),
-      ]);
-    } catch {
-      // Errors are handled in individual thunks and refresh functions, so we can ignore errors here
+      await refreshAllData(true);
+    } finally {
+      setRefreshing(false);
     }
-  }, [dispatch, refreshHistoryRows, user?.id]);
+  }, [dispatch, refreshAllData]);
 
   useEffect(() => {
     refreshAllData();
@@ -180,13 +205,19 @@ export default function SalesScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
+    // Skip if this preset's data is already fresh — no need to hit the API again.
+    const alreadyLoaded =
+      saleState.rangeStatus[selectedPreset] === "succeeded" &&
+      !isStale(saleState.lastFetched);
+    if (alreadyLoaded) return;
+
     dispatch(
       fetchSalesRange({
         userId: user.id,
         preset: selectedPreset,
       }),
     );
-  }, [dispatch, selectedPreset, user?.id]);
+  }, [dispatch, selectedPreset, user?.id, saleState.rangeStatus, saleState.lastFetched]);
 
   const handleOpenModal = (sale?: SaleRow) => {
     setModalMode(sale ? "edit" : "add");
@@ -222,6 +253,7 @@ export default function SalesScreen() {
         dispatch(fetchSales(user.id)).unwrap(),
         refreshHistoryRows(),
       ]);
+      dispatch(invalidateSalesCache());
       handleCloseModal();
     } catch {
       Alert.alert("Could not save sale", "Please try again.");
@@ -247,6 +279,7 @@ export default function SalesScreen() {
               dispatch(fetchSales(user.id)).unwrap(),
               refreshHistoryRows(),
             ]);
+            dispatch(invalidateSalesCache());
           } catch {
             Alert.alert("Could not delete sale", "Please try again.");
           } finally {
@@ -310,6 +343,18 @@ export default function SalesScreen() {
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#4f46e5"
+            colors={["#4f46e5"]}
+          />
+        }
         contentContainerStyle={{
           padding: 20,
           paddingTop: 56,

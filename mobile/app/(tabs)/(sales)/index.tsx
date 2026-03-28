@@ -1,5 +1,4 @@
-import SalesScreen from "@/components/pages/tabs/sales/sales-screen";
-
+// Screen is rendered by the kept-alive layer in (tabs)/_layout.tsx
 export default function SalesIndex() {
-  return <SalesScreen />;
+  return null;
 }

@@ -1,5 +1,4 @@
-import HomeScreen from "@/components/pages/tabs/home/home-screen";
-
+// Screen is rendered by the kept-alive layer in (tabs)/_layout.tsx
 export default function HomeIndex() {
-  return <HomeScreen />;
+  return null;
 }

@@ -282,6 +282,7 @@ const initialState: SaleState = {
   historyError: null,
   status: "idle",
   error: null,
+  lastFetched: null,
   rangeStatus: {
     today: "idle",
     "1d": "idle",
@@ -304,7 +305,12 @@ const initialState: SaleState = {
 const saleSlice = createSlice({
   name: "sale",
   initialState,
-  reducers: {},
+  reducers: {
+    // Call this to force a re-fetch on next render (e.g. after a mutation).
+    invalidateSalesCache(state) {
+      state.lastFetched = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchSales.pending, (state) => {
@@ -314,6 +320,7 @@ const saleSlice = createSlice({
       .addCase(fetchSales.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.sales = action.payload;
+        state.lastFetched = Date.now();
       })
       .addCase(fetchSales.rejected, (state, action) => {
         state.status = "failed";
@@ -363,4 +370,5 @@ const saleSlice = createSlice({
   },
 });
 
+export const { invalidateSalesCache } = saleSlice.actions;
 export default saleSlice.reducer;

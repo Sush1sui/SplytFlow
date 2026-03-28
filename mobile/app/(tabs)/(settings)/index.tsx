@@ -1,5 +1,4 @@
-import SettingsScreen from "@/components/pages/tabs/settings/settings-screen";
-
+// Screen is rendered by the kept-alive layer in (tabs)/_layout.tsx
 export default function SettingsIndex() {
-  return <SettingsScreen />;
+  return null;
 }

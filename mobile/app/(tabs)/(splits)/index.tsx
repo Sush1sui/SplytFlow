@@ -1,5 +1,4 @@
-import SplitsScreen from "@/components/pages/tabs/splits/splits-screen";
-
+// Screen is rendered by the kept-alive layer in (tabs)/_layout.tsx
 export default function SplitsIndex() {
-  return <SplitsScreen />;
+  return null;
 }

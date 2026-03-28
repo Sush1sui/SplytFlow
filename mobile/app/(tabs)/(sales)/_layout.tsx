@@ -5,10 +5,13 @@ export default function SalesLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none",
+        animation: "slide_from_right",
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="index"
+        options={{ contentStyle: { backgroundColor: "transparent" } }}
+      />
       <Stack.Screen name="sale-history-page" />
     </Stack>
   );

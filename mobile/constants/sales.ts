@@ -34,10 +34,10 @@ export const COMPARISON_SALES_KEYS = [
 
 export const COMPARISON_LABELS = [
   "vs yesterday",
-  "vs previous 7 days",
-  "vs previous 30 days",
-  "vs previous 90 days",
-  "vs previous 365 days",
+  "vs last 7 days",
+  "vs last 30 days",
+  "vs last 90 days",
+  "vs last 365 days",
 ] as const;
 
 export const SPLIT_COLORS = [

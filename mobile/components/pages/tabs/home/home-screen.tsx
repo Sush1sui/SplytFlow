@@ -66,6 +66,10 @@ export default function HomeScreen() {
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        alwaysBounceVertical
+        overScrollMode="always"
         contentContainerStyle={{
           padding: 20,
           paddingTop: 56,

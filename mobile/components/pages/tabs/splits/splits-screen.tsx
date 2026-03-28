@@ -39,6 +39,10 @@ export default function SplitsScreen() {
         style={{ flex: 1, backgroundColor: "#f4f6fb", marginTop: space(16) }}
       >
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+          alwaysBounceVertical
+          overScrollMode="always"
           contentContainerStyle={{
             flexGrow: 1,
             padding: 20,
@@ -66,6 +70,10 @@ export default function SplitsScreen() {
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        alwaysBounceVertical
+        overScrollMode="always"
         contentContainerStyle={{
           flexGrow: 1,
           padding: 20,
