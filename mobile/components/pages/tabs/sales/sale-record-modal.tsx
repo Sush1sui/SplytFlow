@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { useSaleRecordModal } from "./use-sale-record-modal";
@@ -76,27 +76,32 @@ export default function SaleRecordModal({
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(0, 0, 0, 0.55)" }]} />
         )}
 
-        <Pressable onPress={onClose} style={{ flex: 1, justifyContent: "flex-end" }}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ width: "100%" }}>
-            <Animated.View style={sheetAnimatedStyle}>
-              <SaleRecordModalSheet
-                mode={mode}
-                currency={currency}
-                pending={pending}
-                onClose={onClose}
-                amountInput={amountInput}
-                setAmountInput={setAmountInput}
-                dateLabel={dateLabel}
-                onOpenPicker={handleOpenPicker}
-                selectedLocalTime={selectedLocalTime}
-                onOpenTimePicker={handleOpenTimePicker}
-                canSubmit={canSubmit}
-                submitButtonStyle={submitButtonStyle}
-                onSubmit={handleSubmit}
-              />
-            </Animated.View>
+        <KeyboardAvoidingView
+          behavior="padding"
+          style={{ flex: 1, justifyContent: "flex-end" }}
+        >
+          <Pressable onPress={onClose} style={{ flex: 1, justifyContent: "flex-end" }}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ width: "100%" }}>
+              <Animated.View style={sheetAnimatedStyle}>
+                <SaleRecordModalSheet
+                  mode={mode}
+                  currency={currency}
+                  pending={pending}
+                  onClose={onClose}
+                  amountInput={amountInput}
+                  setAmountInput={setAmountInput}
+                  dateLabel={dateLabel}
+                  onOpenPicker={handleOpenPicker}
+                  selectedLocalTime={selectedLocalTime}
+                  onOpenTimePicker={handleOpenTimePicker}
+                  canSubmit={canSubmit}
+                  submitButtonStyle={submitButtonStyle}
+                  onSubmit={handleSubmit}
+                />
+              </Animated.View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Animated.View>
 
       <SaleDatePickerModal

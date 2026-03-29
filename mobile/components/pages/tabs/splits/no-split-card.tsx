@@ -1,9 +1,12 @@
 import React from "react";
+import { Pressable } from "react-native";
 import { YStack, Paragraph } from "tamagui";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import useTabResponsive from "../shared/use-tab-responsive";
 
-export default function NoSplitCard() {
+type NoSplitCardProps = { onPress?: () => void };
+
+export default function NoSplitCard({ onPress }: NoSplitCardProps) {
   const { font } = useTabResponsive();
 
   return (
@@ -99,27 +102,29 @@ export default function NoSplitCard() {
           button above to create your first split group and start tracking.
         </Paragraph>
 
-        {/* Bottom decorative pill */}
-        <YStack
-          style={{
-            marginTop: 24,
-            backgroundColor: "#eef2ff",
-            borderRadius: 20,
-            paddingVertical: 8,
-            paddingHorizontal: 20,
-          }}
-        >
-          <Paragraph
+        {/* Bottom decorative pill — tappable */}
+        <Pressable onPress={onPress}>
+          <YStack
             style={{
-              color: "#4f46e5",
-              fontSize: font(12, 11, 13),
-              fontWeight: "700",
-              letterSpacing: 0.3,
+              marginTop: 24,
+              backgroundColor: "#eef2ff",
+              borderRadius: 20,
+              paddingVertical: 8,
+              paddingHorizontal: 20,
             }}
           >
-            CREATE SPLIT GROUP
-          </Paragraph>
-        </YStack>
+            <Paragraph
+              style={{
+                color: "#4f46e5",
+                fontSize: font(12, 11, 13),
+                fontWeight: "700",
+                letterSpacing: 0.3,
+              }}
+            >
+              CREATE SPLIT GROUP
+            </Paragraph>
+          </YStack>
+        </Pressable>
       </YStack>
     </YStack>
   );

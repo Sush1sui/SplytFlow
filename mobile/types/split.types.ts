@@ -24,6 +24,8 @@ export type SplitState = {
   activeSplitGroupId: string | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  createGroupPending: boolean;
+  createGroupError: string | null;
 };
 
 export type SplitGroupUpsertPayload = {

@@ -14,6 +14,7 @@ import type {
   SplitUpsertPayload,
   SuccessMessageResponse,
 } from "@/types/split.types";
+import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
 
 const ACTIVE_SPLIT_GROUP_KEY = "active_split_group_id";
 
@@ -22,6 +23,8 @@ const initialState: SplitState = {
   activeSplitGroupId: null,
   status: "idle",
   error: null,
+  createGroupPending: false,
+  createGroupError: null,
 };
 
 function removeSplitById(
@@ -59,7 +62,7 @@ export const fetchSplitGroupsWithSplits = createAsyncThunk(
   "split/fetchSplitGroupsWithSplits",
   async (userId: string) => {
     const splitGroups = await apiFetcher<SplitGroupWithSplits[]>(
-      `/splits/categories?userId=${encodeURIComponent(userId)}&includeSplits=true`,
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT_CATEGORY.LIST}?userId=${encodeURIComponent(userId)}&includeSplits=true`,
     );
 
     return splitGroups;
@@ -69,33 +72,42 @@ export const fetchSplitGroupsWithSplits = createAsyncThunk(
 export const createSplitGroup = createAsyncThunk(
   "split/createSplitGroup",
   async (payload: SplitGroupUpsertPayload) => {
-    return apiFetcher<SplitGroupRow>("/splits/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    return apiFetcher<SplitGroupRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT_CATEGORY.CREATE}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
   },
 );
 
 export const updateSplitGroup = createAsyncThunk(
   "split/updateSplitGroup",
   async ({ id, ...payload }: SplitGroupUpdatePayload) => {
-    return apiFetcher<SplitGroupRow>(`/splits/categories/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    return apiFetcher<SplitGroupRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT_CATEGORY.BY_ID(id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
   },
 );
 
 export const deleteSplitGroup = createAsyncThunk(
   "split/deleteSplitGroup",
   async ({ id, userId }: SplitGroupDeletePayload) => {
-    await apiFetcher<SuccessMessageResponse>(`/splits/categories/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
+    await apiFetcher<SuccessMessageResponse>(
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT_CATEGORY.BY_ID(id)}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      },
+    );
 
     return id;
   },
@@ -104,22 +116,28 @@ export const deleteSplitGroup = createAsyncThunk(
 export const createSplit = createAsyncThunk(
   "split/createSplit",
   async (payload: SplitUpsertPayload) => {
-    return apiFetcher<SplitRow>("/splits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    return apiFetcher<SplitRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT.CREATE}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
   },
 );
 
 export const updateSplit = createAsyncThunk(
   "split/updateSplit",
   async ({ id, ...payload }: SplitUpdatePayload) => {
-    return apiFetcher<SplitRow>(`/splits/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    return apiFetcher<SplitRow>(
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT.BY_ID(id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
   },
 );
 
@@ -127,7 +145,7 @@ export const deleteSplit = createAsyncThunk(
   "split/deleteSplit",
   async ({ id, userId }: SplitDeletePayload) => {
     await apiFetcher<SuccessMessageResponse>(
-      `/splits/${id}?userId=${encodeURIComponent(userId)}`,
+      `${API_BASE_URL}${API_ENDPOINTS.SPLIT.BY_ID(id)}?userId=${encodeURIComponent(userId)}`,
       {
         method: "DELETE",
       },
@@ -174,8 +192,18 @@ const splitSlice = createSlice({
         state.status = "failed";
         state.error = action.error.message ?? "Failed to fetch split groups";
       })
+      .addCase(createSplitGroup.pending, (state) => {
+        state.createGroupPending = true;
+        state.createGroupError = null;
+      })
       .addCase(createSplitGroup.fulfilled, (state, action) => {
+        state.createGroupPending = false;
         state.splitGroups.push({ ...action.payload, splits: [] });
+      })
+      .addCase(createSplitGroup.rejected, (state, action) => {
+        state.createGroupPending = false;
+        state.createGroupError =
+          action.error.message ?? "Failed to create group";
       })
       .addCase(updateSplitGroup.fulfilled, (state, action) => {
         state.splitGroups = state.splitGroups.map((group) => {
