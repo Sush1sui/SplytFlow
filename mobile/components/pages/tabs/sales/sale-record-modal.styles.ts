@@ -1,6 +1,6 @@
 export const overlayStyle = {
   flex: 1,
-  backgroundColor: "rgba(2,6,23,0.35)",
+  backgroundColor: "rgba(2,6,23,0.45)",
 };
 
 export const sheetStyle = {
