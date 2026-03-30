@@ -28,6 +28,8 @@ export const API_ENDPOINTS = {
     SIGNUP: "/auth/signup",
     REFRESH: "/auth/refresh",
     ME: "/auth/me",
+    UPDATE_PROFILE: "/auth/me",
+    UPDATE_PASSWORD: "/auth/me/password",
     LOGOUT: "/auth/logout",
   },
   OTP: {

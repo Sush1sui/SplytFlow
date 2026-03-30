@@ -67,6 +67,18 @@ export async function findUserWithPasswordByEmail(
   return user ?? null;
 }
 
+export async function findUserByIdWithPassword(
+  userId: string,
+): Promise<AuthUserWithPassword | null> {
+  const [user] = await db
+    .select(authUserWithPasswordColumns)
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return user ?? null;
+}
+
 export async function findUserById(userId: string): Promise<AuthUser | null> {
   const [user] = await db
     .select(authUserColumns)

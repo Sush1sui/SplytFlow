@@ -14,14 +14,16 @@ const defaultAuthActions: AuthActions = {
   login: async () => Promise.resolve(false),
   OTP_signup: async () => Promise.resolve(false),
   verifyOTP: async (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string,
-    confirmPassword: string,
-    code: string,
+    _firstName: string,
+    _lastName: string,
+    _email: string,
+    _password: string,
+    _confirmPassword: string,
+    _code: string,
   ) => Promise.resolve(false),
   logout: () => {},
+  updateProfile: async () => Promise.resolve(),
+  updatePassword: async () => Promise.resolve(),
 };
 
 export const AuthStateContext = createContext<AuthState>(defaultAuthState);

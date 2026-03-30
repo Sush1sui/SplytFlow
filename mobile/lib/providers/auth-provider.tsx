@@ -9,6 +9,7 @@ import type {
   LoginResponse,
   MeResponse,
   RefreshResponse,
+  UpdateProfileResponse,
   AuthActions,
   AuthState,
 } from "@/types/auth.types";
@@ -354,9 +355,51 @@ export default function AuthProvider({
     [user, loading],
   );
 
+  const updateProfile = useCallback(
+    async (firstName: string, lastName: string, email: string) => {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY!);
+      if (!token) throw new Error("Not authenticated");
+
+      const response = await apiFetcher<UpdateProfileResponse>(
+        `${API_BASE_URL}${API_ENDPOINTS.AUTH.UPDATE_PROFILE}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ firstName, lastName, email }),
+        },
+      );
+
+      setUserSafe(response.user);
+    },
+    [setUserSafe],
+  );
+
+  const updatePassword = useCallback(
+    async (oldPassword: string, password: string, confirmPassword: string) => {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY!);
+      if (!token) throw new Error("Not authenticated");
+
+      await apiFetcher(
+        `${API_BASE_URL}${API_ENDPOINTS.AUTH.UPDATE_PASSWORD}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ oldPassword, password, confirmPassword }),
+        },
+      );
+    },
+    [],
+  );
+
   const authActionsValue = useMemo<AuthActions>(
-    () => ({ login, OTP_signup, verifyOTP, logout }),
-    [login, OTP_signup, verifyOTP, logout],
+    () => ({ login, OTP_signup, verifyOTP, logout, updateProfile, updatePassword }),
+    [login, OTP_signup, verifyOTP, logout, updateProfile, updatePassword],
   );
 
   return (

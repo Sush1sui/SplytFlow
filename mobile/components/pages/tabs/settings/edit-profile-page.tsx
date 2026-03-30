@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ScrollView,
   TextInput,
@@ -6,17 +6,55 @@ import {
   TouchableOpacity,
   View,
   Text,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuthState, useAuthActions } from "@/lib/context/auth-context";
 
 export default function EditProfilePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [firstName, setFirstName] = useState("John");
-  const [lastName, setLastName] = useState("Doe");
-  const [email, setEmail] = useState("john.doe@example.com");
+  const { user } = useAuthState();
+  const { updateProfile } = useAuthActions();
+
+  const [firstName, setFirstName] = useState(user?.firstName ?? "");
+  const [lastName, setLastName] = useState(user?.lastName ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedFirst || !trimmedLast) {
+      Alert.alert("Validation Error", "First and last name are required.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      Alert.alert("Validation Error", "Please enter a valid email address.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateProfile(trimmedFirst, trimmedLast, trimmedEmail);
+      Alert.alert("Success", "Profile updated successfully.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (error: any) {
+      const message =
+        error?.body?.error ?? error?.message ?? "Failed to update profile.";
+      Alert.alert("Error", message);
+    } finally {
+      setSaving(false);
+    }
+  }, [firstName, lastName, email, updateProfile, router]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -30,8 +68,16 @@ export default function EditProfilePage() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={18} color="#64748b" />
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={saving}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={18}
+              color="#64748b"
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
         </View>
@@ -39,7 +85,11 @@ export default function EditProfilePage() {
         {/* Avatar */}
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <MaterialCommunityIcons name="account-outline" size={52} color="#4f46e5" />
+            <MaterialCommunityIcons
+              name="account-outline"
+              size={52}
+              color="#4f46e5"
+            />
           </View>
           <View style={styles.editBadge}>
             <MaterialCommunityIcons name="pencil" size={13} color="#ffffff" />
@@ -59,6 +109,7 @@ export default function EditProfilePage() {
                 placeholder="First Name"
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="words"
+                editable={!saving}
               />
             </View>
             <View style={styles.halfField}>
@@ -70,6 +121,7 @@ export default function EditProfilePage() {
                 placeholder="Last Name"
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="words"
+                editable={!saving}
               />
             </View>
           </View>
@@ -85,13 +137,23 @@ export default function EditProfilePage() {
               placeholderTextColor="#94a3b8"
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!saving}
             />
           </View>
         </View>
 
         {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} activeOpacity={0.85}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          activeOpacity={0.85}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -190,6 +252,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#4f46e5",
     alignItems: "center",
     justifyContent: "center",
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,

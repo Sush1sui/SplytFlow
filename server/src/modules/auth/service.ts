@@ -19,6 +19,7 @@ import {
   createUserRecord,
   deleteRefreshTokenRecord,
   findUserById,
+  findUserByIdWithPassword,
   findUserWithPasswordByEmail,
   invalidateAllSessions,
 } from "./repository";
@@ -27,6 +28,9 @@ import {
   assertSignupInput,
   normalizeEmail,
 } from "./validators";
+import { db } from "../../db";
+import { users } from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 async function createUser(
   firstName: string,
@@ -186,6 +190,90 @@ export async function logoutSingle(
 
 export async function logoutAll(userId: string): Promise<void> {
   await invalidateAllSessions(userId);
+}
+
+export async function updateProfile(
+  userId: string,
+  firstName: string,
+  lastName: string,
+  email: string,
+): Promise<{ user: UserProfile }> {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new AuthServiceError("not_found", "User not found");
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+
+  const [updated] = await db
+    .update(users)
+    .set({ firstName, lastName, email: normalizedEmail })
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      tokenVersion: users.tokenVersion,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    });
+
+  if (!updated) {
+    throw new AuthServiceError("not_found", "User not found after update");
+  }
+
+  return { user: formatUserProfile(updated) };
+}
+
+export async function updatePassword(
+  userId: string,
+  password: string,
+  confirmPassword: string,
+  type: "change" | "reset",
+  oldPassword?: string,
+) {
+  if (!userId)
+    throw new AuthServiceError("invalid_input", "User ID is required");
+
+  if (password !== confirmPassword)
+    throw new AuthServiceError("invalid_input", "Passwords do not match");
+
+  if (type !== "change" && type !== "reset")
+    throw new AuthServiceError("invalid_input", "Invalid password type");
+
+  const user = await findUserByIdWithPassword(userId);
+  if (!user) throw new AuthServiceError("not_found", "User not found");
+
+  if (type === "change") {
+    if (!oldPassword)
+      throw new AuthServiceError(
+        "invalid_input",
+        "Old password is required for changing password",
+      );
+
+    const passwordMatch = await Bun.password.verify(oldPassword, user.password);
+    if (!passwordMatch)
+      throw new AuthServiceError("invalid_input", "Invalid old password");
+  }
+
+  const newPasswordHash = await Bun.password.hash(password);
+  user.password = newPasswordHash;
+  user.tokenVersion++;
+
+  await db
+    .update(users)
+    .set({
+      password: newPasswordHash,
+      tokenVersion: user.tokenVersion,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    message: `Password ${type === "change" ? "changed" : "reset"} successfully`,
+    user: formatUserProfile(user),
+  };
 }
 
 export { AuthServiceError } from "./errors";

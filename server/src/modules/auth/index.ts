@@ -6,6 +6,8 @@ import {
   signup,
   logoutSingle,
   logoutAll,
+  updateProfile,
+  updatePassword,
 } from "./service";
 import {
   SignInBody,
@@ -172,6 +174,72 @@ const auth = new Elysia({ prefix: "/auth" })
         }
       })
 
+      /**
+       * PATCH /auth/me
+       * Body: { firstName, lastName, email }
+       * Response: { user }
+       * Possible errors:
+       * - 400: Invalid input (e.g. missing fields)
+       * - 401: Unauthorized
+       * - 409: Email already in use
+       * - 500: Server error
+       */
+      .patch(
+        "/me",
+        async ({ userId, body, set }) => {
+          try {
+            const { firstName, lastName, email } = body;
+            const result = await updateProfile(
+              userId,
+              firstName,
+              lastName,
+              email,
+            );
+            set.status = 200;
+            return result;
+          } catch (error) {
+            set.status = authErrorStatus(error);
+            return authErrorPayload(error);
+          }
+        },
+        {
+          body: authSchemas.updateProfileBody,
+        },
+      )
+
+      /**
+       * PATCH /auth/me/password
+       * Body: { oldPassword, password, confirmPassword }
+       * Response: { user }
+       * Possible errors:
+       * - 400: Invalid input (e.g. missing fields, password mismatch, weak password)
+       * - 401: Unauthorized
+       * - 409: Email already in use
+       * - 500: Server error
+       */
+      .patch(
+        "/me/password",
+        async ({ userId, body, set }) => {
+          try {
+            const { oldPassword, password, confirmPassword } = body;
+            const result = await updatePassword(
+              userId,
+              password,
+              confirmPassword,
+              "change",
+              oldPassword,
+            );
+            set.status = 200;
+            return result;
+          } catch (error) {
+            set.status = authErrorStatus(error);
+            return authErrorPayload(error);
+          }
+        },
+        {
+          body: authSchemas.updatePasswordBody,
+        },
+      )
       /**
        * POST /auth/logout
        * Body: { refreshToken? }

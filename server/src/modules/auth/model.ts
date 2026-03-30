@@ -121,6 +121,16 @@ export const authSchemas = {
   logoutBody: t.Object({
     refreshToken: t.Optional(t.String()),
   }),
+  updateProfileBody: t.Object({
+    firstName: t.String(),
+    lastName: t.String(),
+    email: t.String(),
+  }),
+  updatePasswordBody: t.Object({
+    oldPassword: t.String(),
+    password: t.String(),
+    confirmPassword: t.String(),
+  }),
 };
 
 export function authErrorPayload(error: unknown) {

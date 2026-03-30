@@ -21,6 +21,16 @@ export type AuthContext = {
     code: string,
   ) => Promise<boolean>;
   logout: () => void;
+  updateProfile: (
+    firstName: string,
+    lastName: string,
+    email: string,
+  ) => Promise<void>;
+  updatePassword: (
+    oldPassword: string,
+    password: string,
+    confirmPassword: string,
+  ) => Promise<void>;
   loading: boolean;
 };
 
@@ -28,7 +38,7 @@ export type AuthState = Pick<AuthContext, "user" | "loading">;
 
 export type AuthActions = Pick<
   AuthContext,
-  "login" | "OTP_signup" | "verifyOTP" | "logout"
+  "login" | "OTP_signup" | "verifyOTP" | "logout" | "updateProfile" | "updatePassword"
 >;
 
 export type SignUpParams = {
@@ -51,6 +61,10 @@ export interface LoginResponse {
 }
 
 export interface MeResponse {
+  user: UserProfile;
+}
+
+export interface UpdateProfileResponse {
   user: UserProfile;
 }
 

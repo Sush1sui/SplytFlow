@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ScrollView,
   TextInput,
@@ -6,22 +6,56 @@ import {
   TouchableOpacity,
   View,
   Text,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuthActions } from "@/lib/context/auth-context";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { updatePassword } = useAuthActions();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleUpdate = useCallback(async () => {
+    if (!currentPassword) {
+      Alert.alert("Validation Error", "Please enter your current password.");
+      return;
+    }
+    if (!newPassword) {
+      Alert.alert("Validation Error", "Please enter a new password.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Validation Error", "New passwords do not match.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updatePassword(currentPassword, newPassword, confirmPassword);
+      Alert.alert("Success", "Password updated successfully.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (error: any) {
+      const message =
+        error?.body?.error ?? error?.message ?? "Failed to update password.";
+      Alert.alert("Error", message);
+    } finally {
+      setSaving(false);
+    }
+  }, [currentPassword, newPassword, confirmPassword, updatePassword, router]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -35,7 +69,11 @@ export default function ChangePasswordPage() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={saving}
+          >
             <MaterialCommunityIcons name="arrow-left" size={18} color="#64748b" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Change Password</Text>
@@ -55,6 +93,7 @@ export default function ChangePasswordPage() {
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showCurrent}
                 autoCapitalize="none"
+                editable={!saving}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -81,6 +120,7 @@ export default function ChangePasswordPage() {
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showNew}
                 autoCapitalize="none"
+                editable={!saving}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -107,6 +147,7 @@ export default function ChangePasswordPage() {
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showConfirm}
                 autoCapitalize="none"
+                editable={!saving}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -123,8 +164,17 @@ export default function ChangePasswordPage() {
         </View>
 
         {/* Update Button */}
-        <TouchableOpacity style={styles.updateButton} activeOpacity={0.85}>
-          <Text style={styles.updateButtonText}>Update Password</Text>
+        <TouchableOpacity
+          style={[styles.updateButton, saving && styles.updateButtonDisabled]}
+          activeOpacity={0.85}
+          onPress={handleUpdate}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.updateButtonText}>Update Password</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -201,6 +251,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#4f46e5",
     alignItems: "center",
     justifyContent: "center",
+  },
+  updateButtonDisabled: {
+    opacity: 0.6,
   },
   updateButtonText: {
     fontSize: 16,
