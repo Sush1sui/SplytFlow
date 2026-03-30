@@ -1,5 +1,12 @@
-import React, { memo, useMemo, useRef, useState } from "react";
-import { Animated, Pressable, TouchableOpacity } from "react-native";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
+import { Pressable, TouchableOpacity } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Paragraph, XStack, YStack } from "tamagui";
 import type { SplitRow } from "@/types/split.types";
@@ -29,30 +36,62 @@ const SplitGroupCard = memo(function SplitGroupCard({
 }: SplitGroupCardProps) {
   const { font, space } = useTabResponsive();
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
 
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
-  });
+  // All animations run on the UI thread — maxHeight avoids measurement entirely
+  const maxHeightSV = useSharedValue(0);
+  const opacitySV = useSharedValue(0);
+  const rotateSV = useSharedValue(0);
 
-  const toggleExpanded = () => {
-    const next = !expanded;
+  const bodyStyle = useAnimatedStyle(() => ({
+    maxHeight: maxHeightSV.value,
+    opacity: opacitySV.value,
+    overflow: "hidden",
+  }));
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotateSV.value * 180}deg` }],
+  }));
+
+  const toggleExpanded = useCallback(() => {
+    const next = !expandedRef.current;
+    expandedRef.current = next;
     setExpanded(next);
-    Animated.spring(rotateAnim, {
-      toValue: next ? 1 : 0,
-      useNativeDriver: true,
-      tension: 120,
-      friction: 10,
-    }).start();
-  };
+
+    if (next) {
+      // Open: spring up to a generous max, fade in
+      maxHeightSV.value = withSpring(800, {
+        damping: 22,
+        stiffness: 180,
+        mass: 0.9,
+        overshootClamping: true,
+      });
+      opacitySV.value = withTiming(1, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+      });
+    } else {
+      // Close: spring back to 0, fade out faster
+      maxHeightSV.value = withSpring(0, {
+        damping: 22,
+        stiffness: 200,
+        mass: 0.8,
+        overshootClamping: true,
+      });
+      opacitySV.value = withTiming(0, {
+        duration: 160,
+        easing: Easing.in(Easing.cubic),
+      });
+    }
+    rotateSV.value = withSpring(next ? 1 : 0, {
+      damping: 18,
+      stiffness: 220,
+      mass: 0.7,
+    });
+  }, [maxHeightSV, opacitySV, rotateSV]);
 
   const items = useMemo(
-    () =>
-      splits.map((split) => ({
-        ...split,
-        ...getSplitIcon(split.name),
-      })),
+    () => splits.map((split) => ({ ...split, ...getSplitIcon(split.name) })),
     [splits]
   );
 
@@ -70,9 +109,10 @@ const SplitGroupCard = memo(function SplitGroupCard({
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
         elevation: active ? 4 : 1,
+        overflow: "hidden",
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <Pressable onPress={toggleExpanded}>
         <XStack
           style={{
@@ -99,7 +139,6 @@ const SplitGroupCard = memo(function SplitGroupCard({
             />
           </TouchableOpacity>
 
-          {/* Title */}
           <Paragraph
             style={{
               flex: 1,
@@ -112,7 +151,6 @@ const SplitGroupCard = memo(function SplitGroupCard({
             {title}
           </Paragraph>
 
-          {/* ACTIVE badge */}
           {active && (
             <XStack
               style={{
@@ -122,31 +160,27 @@ const SplitGroupCard = memo(function SplitGroupCard({
                 backgroundColor: "#dcfce7",
               }}
             >
-              <Paragraph
-                style={{ color: "#15803d", fontSize: 10, fontWeight: "800" }}
-              >
+              <Paragraph style={{ color: "#15803d", fontSize: 10, fontWeight: "800" }}>
                 ACTIVE
               </Paragraph>
             </XStack>
           )}
 
-          {/* Chevron */}
+          {/* Animated chevron — UI thread */}
           <Animated.View
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: "#f3f4f6",
-              alignItems: "center",
-              justifyContent: "center",
-              transform: [{ rotate: rotateInterpolate }],
-            }}
+            style={[
+              {
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: "#f3f4f6",
+                alignItems: "center",
+                justifyContent: "center",
+              },
+              chevronStyle,
+            ]}
           >
-            <MaterialCommunityIcons
-              name="chevron-down"
-              size={18}
-              color="#6b7280"
-            />
+            <MaterialCommunityIcons name="chevron-down" size={18} color="#6b7280" />
           </Animated.View>
         </XStack>
       </Pressable>
@@ -164,13 +198,12 @@ const SplitGroupCard = memo(function SplitGroupCard({
         Total Deduction: {totalPercent}%
       </Paragraph>
 
-      {/* ── Expanded content ────────────────────────────────────────── */}
-      {expanded && (
+      {/* ── Animated body ───────────────────────────────────── */}
+      <Animated.View style={bodyStyle}>
         <YStack
           style={{ paddingHorizontal: space(14), paddingBottom: space(14) }}
           gap="$2"
         >
-          {/* Split rows */}
           {items.map((item) => (
             <XStack
               key={item.id}
@@ -193,35 +226,19 @@ const SplitGroupCard = memo(function SplitGroupCard({
                   justifyContent: "center",
                 }}
               >
-                <MaterialCommunityIcons
-                  name={item.icon}
-                  size={17}
-                  color={item.iconColor}
-                />
+                <MaterialCommunityIcons name={item.icon} size={17} color={item.iconColor} />
               </YStack>
               <Paragraph
-                style={{
-                  flex: 1,
-                  color: "#0f172a",
-                  fontWeight: "600",
-                  fontSize: font(15, 13, 16),
-                }}
+                style={{ flex: 1, color: "#0f172a", fontWeight: "600", fontSize: font(15, 13, 16) }}
               >
                 {item.name}
               </Paragraph>
-              <Paragraph
-                style={{
-                  color: "#4f46e5",
-                  fontWeight: "800",
-                  fontSize: font(15, 13, 16),
-                }}
-              >
+              <Paragraph style={{ color: "#4f46e5", fontWeight: "800", fontSize: font(15, 13, 16) }}>
                 {item.value}%
               </Paragraph>
             </XStack>
           ))}
 
-          {/* Net profit remaining */}
           {remainingPercent > 0 && items.length > 0 && (
             <XStack
               style={{
@@ -235,37 +252,23 @@ const SplitGroupCard = memo(function SplitGroupCard({
                 justifyContent: "space-between",
               }}
             >
-              <Paragraph
-                style={{
-                  color: "#166534",
-                  fontSize: font(14, 12, 15),
-                  fontWeight: "700",
-                }}
-              >
+              <Paragraph style={{ color: "#166534", fontSize: font(14, 12, 15), fontWeight: "700" }}>
                 Net Profit Remaining
               </Paragraph>
-              <Paragraph
-                style={{
-                  color: "#166534",
-                  fontSize: font(14, 12, 15),
-                  fontWeight: "800",
-                }}
-              >
+              <Paragraph style={{ color: "#166534", fontSize: font(14, 12, 15), fontWeight: "800" }}>
                 {remainingPercent}%
               </Paragraph>
             </XStack>
           )}
 
-          {/* Edit / Add Splits button */}
           <TouchableOpacity
             onPress={() => onEditSplits?.(id)}
             activeOpacity={0.75}
             style={{
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: items.length === 0 ? "#c7d2fe" : "#d4dae7",
-              borderStyle: items.length === 0 ? "dashed" : "solid",
-              backgroundColor: items.length === 0 ? "#f5f7ff" : "#ffffff",
+              borderColor: "#d4dae7",
+              backgroundColor: "#ffffff",
               height: 44,
               alignItems: "center",
               justifyContent: "center",
@@ -273,23 +276,12 @@ const SplitGroupCard = memo(function SplitGroupCard({
               gap: 6,
             }}
           >
-            <MaterialCommunityIcons
-              name={items.length === 0 ? "plus-circle-outline" : "pencil-outline"}
-              size={16}
-              color="#4f46e5"
-            />
-            <Paragraph
-              style={{
-                color: "#4f46e5",
-                fontWeight: "700",
-                fontSize: font(14, 12, 15),
-              }}
-            >
-              {items.length === 0 ? "Add Splits" : "Edit Splits"}
+            <MaterialCommunityIcons name="pencil-outline" size={16} color="#4f46e5" />
+            <Paragraph style={{ color: "#4f46e5", fontWeight: "700", fontSize: font(14, 12, 15) }}>
+              Edit Splits
             </Paragraph>
           </TouchableOpacity>
 
-          {/* Delete group — subtle, below */}
           <TouchableOpacity
             onPress={() => onDelete?.(id)}
             activeOpacity={0.7}
@@ -305,23 +297,13 @@ const SplitGroupCard = memo(function SplitGroupCard({
               gap: 6,
             }}
           >
-            <MaterialCommunityIcons
-              name="trash-can-outline"
-              size={15}
-              color="#ef4444"
-            />
-            <Paragraph
-              style={{
-                color: "#ef4444",
-                fontWeight: "600",
-                fontSize: font(13, 12, 14),
-              }}
-            >
+            <MaterialCommunityIcons name="trash-can-outline" size={15} color="#ef4444" />
+            <Paragraph style={{ color: "#ef4444", fontWeight: "600", fontSize: font(13, 12, 14) }}>
               Delete Group
             </Paragraph>
           </TouchableOpacity>
         </YStack>
-      )}
+      </Animated.View>
     </YStack>
   );
 });

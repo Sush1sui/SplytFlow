@@ -43,6 +43,11 @@ export default function TabsLayout() {
   // be fully transparent to let the kept-alive screens underneath handle input.
   const isSubScreen =
     pathname.includes("sale-history") ||
+    pathname.includes("edit-profile") ||
+    pathname.includes("change-password") ||
+    pathname.includes("privacy-policy") ||
+    pathname.includes("terms-of-service") ||
+    pathname.includes("faqs-support") ||
     (!pathname.endsWith("/(home)") &&
       !pathname.endsWith("/(sales)") &&
       !pathname.endsWith("/(splits)") &&

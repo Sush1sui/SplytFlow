@@ -1,11 +1,14 @@
 import React from "react";
+import { TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Paragraph, XStack, YStack } from "tamagui";
+import { useRouter } from "expo-router";
 import useTabResponsive from "../shared/use-tab-responsive";
 
 type SettingsItem = {
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  route: string;
 };
 
 type SettingsSectionProps = {
@@ -18,6 +21,7 @@ export default function SettingsSection({
   items,
 }: SettingsSectionProps) {
   const { font, space } = useTabResponsive();
+  const router = useRouter();
 
   return (
     <YStack gap="$2">
@@ -41,38 +45,45 @@ export default function SettingsSection({
         }}
       >
         {items.map((item, index) => (
-          <XStack
+          <TouchableOpacity
             key={item.label}
-            style={{
-              alignItems: "center",
-              paddingHorizontal: space(14),
-              paddingVertical: space(14),
-              borderTopWidth: index === 0 ? 0 : 1,
-              borderTopColor: "#edf1f8",
-            }}
-            gap="$2"
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push(`/(tabs)/(settings)${item.route}` as never)
+            }
           >
-            <MaterialCommunityIcons
-              name={item.icon}
-              size={19}
-              color="#6b7280"
-            />
-            <Paragraph
+            <XStack
               style={{
-                flex: 1,
-                color: "#0f172a",
-                fontWeight: "600",
-                fontSize: font(16, 13, 17),
+                alignItems: "center",
+                paddingHorizontal: space(14),
+                paddingVertical: space(14),
+                borderTopWidth: index === 0 ? 0 : 1,
+                borderTopColor: "#edf1f8",
               }}
+              gap="$2"
             >
-              {item.label}
-            </Paragraph>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={19}
-              color="#9aa5b5"
-            />
-          </XStack>
+              <MaterialCommunityIcons
+                name={item.icon}
+                size={19}
+                color="#6b7280"
+              />
+              <Paragraph
+                style={{
+                  flex: 1,
+                  color: "#0f172a",
+                  fontWeight: "600",
+                  fontSize: font(16, 13, 17),
+                }}
+              >
+                {item.label}
+              </Paragraph>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={19}
+                color="#9aa5b5"
+              />
+            </XStack>
+          </TouchableOpacity>
         ))}
       </YStack>
     </YStack>

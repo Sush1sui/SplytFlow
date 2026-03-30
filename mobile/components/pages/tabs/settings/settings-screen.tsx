@@ -1,24 +1,53 @@
 import React from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
+import { useRouter } from "expo-router";
 import SettingsSection from "./settings-section";
 import useTabResponsive from "../shared/use-tab-responsive";
+import { useAuthActions, useAuthState } from "@/lib/context/auth-context";
+import SettingsScreenSkeleton from "./settings-screen-skeleton";
 
 const accountItems = [
-  { label: "Edit Profile", icon: "account-outline" as const },
-  { label: "Change Password", icon: "lock-outline" as const },
-  { label: "Subscription Plan", icon: "credit-card-outline" as const },
+  {
+    label: "Edit Profile",
+    icon: "account-outline" as const,
+    route: "/edit-profile" as const,
+  },
+  {
+    label: "Change Password",
+    icon: "lock-outline" as const,
+    route: "/change-password" as const,
+  },
 ];
 
 const generalItems = [
-  { label: "Privacy Policy", icon: "shield-outline" as const },
-  { label: "Terms of Service", icon: "file-document-outline" as const },
-  { label: "FAQs & Support", icon: "help-circle-outline" as const },
+  {
+    label: "Privacy Policy",
+    icon: "shield-outline" as const,
+    route: "/privacy-policy" as const,
+  },
+  {
+    label: "Terms of Service",
+    icon: "file-document-outline" as const,
+    route: "/terms-of-service" as const,
+  },
+  {
+    label: "FAQs & Support",
+    icon: "help-circle-outline" as const,
+    route: "/faqs-support" as const,
+  },
 ];
 
 export default function SettingsScreen() {
   const { font, space } = useTabResponsive();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuthState();
+  const { logout } = useAuthActions();
+
+  if (authLoading) {
+    return <SettingsScreenSkeleton />;
+  }
 
   return (
     <YStack style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
@@ -81,33 +110,12 @@ export default function SettingsScreen() {
                 fontSize: font(20, 16, 22),
               }}
             >
-              John Doe
+              {user ? `${user.firstName} ${user.lastName}` : "—"}
             </Paragraph>
             <Paragraph style={{ color: "#64748b", fontSize: font(13, 11, 14) }}>
-              john.doe@example.com
+              {user?.email ?? "—"}
             </Paragraph>
           </YStack>
-
-          <Button
-            size="$2"
-            style={{
-              borderRadius: 8,
-              backgroundColor: "#eef2ff",
-              borderColor: "#eef2ff",
-              height: 32,
-              paddingHorizontal: 12,
-            }}
-          >
-            <Paragraph
-              style={{
-                color: "#4f46e5",
-                fontWeight: "700",
-                fontSize: font(13, 11, 14),
-              }}
-            >
-              Edit
-            </Paragraph>
-          </Button>
         </XStack>
 
         <YStack style={{ marginTop: space(18) }} gap="$3">
@@ -123,6 +131,7 @@ export default function SettingsScreen() {
               height: 48,
               marginTop: 4,
             }}
+            onPress={logout}
           >
             <XStack style={{ alignItems: "center" }} gap="$1.5">
               <MaterialCommunityIcons name="logout" size={17} color="#ef4444" />

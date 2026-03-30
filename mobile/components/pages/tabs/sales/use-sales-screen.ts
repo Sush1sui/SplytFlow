@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { SaleRow } from "@/types/sale.types";
@@ -7,6 +7,7 @@ import {
   addSale,
   deleteSale,
   fetchSales,
+  fetchSalesHistory,
   fetchSalesRange,
   invalidateSalesCache,
   updateSale,
@@ -14,8 +15,6 @@ import {
 import { fetchSplitGroupsWithSplits } from "@/lib/store/splitSlice";
 import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
 import { useAuthState } from "@/lib/context/auth-context";
-import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
-import { ApiError, apiFetcher } from "@/lib/api";
 import {
   RANGE_SALES_KEYS,
   COMPARISON_SALES_KEYS,
@@ -42,61 +41,41 @@ export function useSalesScreen() {
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [activeSale, setActiveSale] = useState<SaleRow | null>(null);
   const [mutating, setMutating] = useState(false);
-  const [historyRows, setHistoryRows] = useState<SaleRow[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const saleState = useAppSelector((state) => state.sale);
   const splitState = useAppSelector((state) => state.split);
 
+  // History sourced from Redux — updated optimistically on addSale/updateSale/deleteSale
+  // and also refreshed via fetchSalesHistory. This lets QuickAddSale on the Home tab
+  // trigger updates here without needing access to local state.
+  const historyRows = saleState.history.slice(0, 5);
+  const historyLoading = saleState.historyStatus === "loading";
+
   const selectedPreset = RANGE_PRESET_MAPPING[selectedRange] ?? "today";
 
-  // ─── Data fetching ────────────────────────────────────────────────────────
+  // Keep a ref to the latest sale state so callbacks don't need it as a dep
+  const saleStateRef = useRef(saleState);
+  useEffect(() => { saleStateRef.current = saleState; }, [saleState]);
 
-  const refreshHistoryRows = useCallback(async () => {
-    if (!user?.id) {
-      setHistoryRows([]);
-      setHistoryLoading(false);
-      return;
-    }
-    setHistoryLoading(true);
-    try {
-      const rows = await apiFetcher<SaleRow[]>(
-        `${API_BASE_URL}${API_ENDPOINTS.SALE.LIST}?userId=${user.id}`,
-      );
-      setHistoryRows(
-        [...rows]
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          )
-          .slice(0, 5),
-      );
-    } catch (error) {
-      if (!(error instanceof ApiError && error.status === 404)) {
-        console.error(error);
-      }
-      setHistoryRows([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [user?.id]);
+  // ─── Data fetching ────────────────────────────────────────────────────────
 
   const refreshAllData = useCallback(
     async (force = false) => {
       if (!user?.id) return;
-      if (!force && !isStale(saleState.lastFetched)) return;
+      // Read lastFetched from ref — no reactive dep, no re-render cascade
+      if (!force && !isStale(saleStateRef.current.lastFetched)) return;
       try {
         await Promise.all([
           dispatch(fetchSales(user.id)).unwrap(),
           dispatch(fetchSplitGroupsWithSplits(user.id)).unwrap(),
-          refreshHistoryRows(),
+          dispatch(fetchSalesHistory(user.id)).unwrap(),
         ]);
       } catch {
         // Errors handled in individual thunks
       }
     },
-    [dispatch, refreshHistoryRows, user?.id, saleState.lastFetched],
+    [dispatch, user?.id],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -117,12 +96,13 @@ export function useSalesScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
+    // Read from ref so switching filters doesn't remake this effect's closure
     const alreadyLoaded =
-      saleState.rangeStatus[selectedPreset] === "succeeded" &&
-      !isStale(saleState.lastFetched);
+      saleStateRef.current.rangeStatus[selectedPreset] === "succeeded" &&
+      !isStale(saleStateRef.current.lastFetched);
     if (alreadyLoaded) return;
     dispatch(fetchSalesRange({ userId: user.id, preset: selectedPreset }));
-  }, [dispatch, selectedPreset, user?.id, saleState.rangeStatus, saleState.lastFetched]);
+  }, [dispatch, selectedPreset, user?.id]);
 
   // ─── Modal handlers ───────────────────────────────────────────────────────
 
@@ -155,7 +135,7 @@ export function useSalesScreen() {
         }
         await Promise.all([
           dispatch(fetchSales(user.id)).unwrap(),
-          refreshHistoryRows(),
+          dispatch(fetchSalesHistory(user.id)).unwrap(),
         ]);
         dispatch(invalidateSalesCache());
         handleCloseModal();
@@ -165,7 +145,7 @@ export function useSalesScreen() {
         setMutating(false);
       }
     },
-    [activeSale, dispatch, handleCloseModal, modalMode, refreshHistoryRows, user?.id],
+    [activeSale, dispatch, handleCloseModal, modalMode, user?.id],
   );
 
   const handleDeleteSale = useCallback(
@@ -184,7 +164,7 @@ export function useSalesScreen() {
               ).unwrap();
               await Promise.all([
                 dispatch(fetchSales(user.id)).unwrap(),
-                refreshHistoryRows(),
+                dispatch(fetchSalesHistory(user.id)).unwrap(),
               ]);
               dispatch(invalidateSalesCache());
             } catch {
@@ -196,7 +176,7 @@ export function useSalesScreen() {
         },
       ]);
     },
-    [dispatch, refreshHistoryRows, user?.id],
+    [dispatch, user?.id],
   );
 
   // ─── Derived values ───────────────────────────────────────────────────────

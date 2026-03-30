@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { useAuthState } from "@/lib/context/auth-context";
 import useToast from "@/lib/context/toast-context";
-import { addSale, fetchSales } from "@/lib/store/saleSlice";
+import { addSale, fetchSales, fetchSalesHistory } from "@/lib/store/saleSlice";
 import { hydrateLogs } from "@/lib/store/logSlice";
 
 export default function QuickAddSale({
@@ -37,6 +37,7 @@ export default function QuickAddSale({
       try {
         await Promise.all([
           dispatch(fetchSales(user.id)).unwrap(),
+          dispatch(fetchSalesHistory(user.id)).unwrap(),
           dispatch(hydrateLogs()).unwrap(),
         ]);
       } catch {

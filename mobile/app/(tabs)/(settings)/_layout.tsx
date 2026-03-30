@@ -1,6 +1,22 @@
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 
-// No sub-screens under (settings) — Slot renders the null-returning index.
 export default function SettingsLayout() {
-  return <Slot />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+      }}
+    >
+      <Stack.Screen
+        name="index"
+        options={{ contentStyle: { backgroundColor: "transparent" } }}
+      />
+      <Stack.Screen name="edit-profile" />
+      <Stack.Screen name="change-password" />
+      <Stack.Screen name="privacy-policy" />
+      <Stack.Screen name="terms-of-service" />
+      <Stack.Screen name="faqs-support" />
+    </Stack>
+  );
 }

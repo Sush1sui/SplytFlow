@@ -295,30 +295,59 @@ export default function AuthProvider({
 
   const logout = useCallback(async () => {
     try {
-      const [token, refreshToken] = await Promise.all([
+      let [token, refreshToken] = await Promise.all([
         SecureStore.getItemAsync(TOKEN_KEY!),
         SecureStore.getItemAsync(REFRESH_TOKEN_KEY!),
       ]);
 
       if (token) {
-        await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            refreshToken: refreshToken ?? undefined,
-          }),
-        });
+        try {
+          await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              refreshToken: refreshToken ?? undefined,
+            }),
+          });
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            // Access token already expired — attempt a silent refresh so we
+            // can send the server a valid token to blacklist the refresh token.
+            const newToken = await silentRefresh();
+            if (newToken) {
+              refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY!);
+              try {
+                await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${newToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    refreshToken: refreshToken ?? undefined,
+                  }),
+                });
+              } catch {
+                // Server-side logout failed after refresh — local cleanup is
+                // sufficient; don't surface this as an error.
+              }
+            }
+            // If silentRefresh also fails the refresh token is already invalid,
+            // so there is nothing left to revoke on the server.
+          } else {
+            // Unexpected non-auth error — log it but still clear the session.
+            console.error("Logout failed:", error);
+          }
+        }
       }
-    } catch (error) {
-      console.error("Logout failed:", error);
     } finally {
       await clearTokens();
       router.replace("/(auth)/signin");
     }
-  }, [clearTokens]);
+  }, [clearTokens, silentRefresh]);
 
   const authStateValue = useMemo<AuthState>(
     () => ({ user, loading }),

@@ -1,5 +1,5 @@
 import React, { Dispatch, SetStateAction } from "react";
-import { Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack } from "tamagui";
 import { ranges } from "@/constants/sales";
 import AnalyticsFilterBadge from "./analytics-filter-badge";
 import GrossNetCard from "./gross-net-card";
