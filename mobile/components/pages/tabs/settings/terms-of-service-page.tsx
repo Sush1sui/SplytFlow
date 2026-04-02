@@ -1,8 +1,9 @@
 import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View, Text } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Paragraph, YStack } from "tamagui";
+import useTabResponsive from "../shared/use-tab-responsive";
+import SettingsPageHeader from "./settings-page-header";
 
 const sections = [
   {
@@ -24,90 +25,65 @@ const sections = [
 ];
 
 export default function TermsOfServicePage() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { font, space } = useTabResponsive();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <YStack
+      style={{ flex: 1, backgroundColor: "#f4f6fb", paddingTop: insets.top }}
+    >
       <ScrollView
         contentContainerStyle={[
-          styles.scrollContent,
+          {
+            paddingHorizontal: 20,
+            paddingTop: 16,
+          },
           { paddingBottom: insets.bottom + 110 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={18} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Terms of Service</Text>
-        </View>
+        <YStack gap="$4">
+          <SettingsPageHeader title="Terms of Service" />
 
-        {/* Content Card */}
-        <View style={styles.card}>
-          {sections.map((section, index) => (
-            <View key={section.heading} style={index > 0 ? styles.sectionSpacing : undefined}>
-              <Text style={styles.sectionHeading}>{section.heading}</Text>
-              <Text style={styles.sectionBody}>{section.body}</Text>
-            </View>
-          ))}
-        </View>
+          <YStack
+            style={{
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: "#e2e8f0",
+              backgroundColor: "#ffffff",
+              padding: 20,
+            }}
+            gap="$1"
+          >
+            {sections.map((section, index) => (
+              <YStack
+                key={section.heading}
+                style={{ marginTop: index === 0 ? 0 : space(14) }}
+                gap="$1.5"
+              >
+                <Paragraph
+                  style={{
+                    color: "#0f172a",
+                    fontWeight: "800",
+                    fontSize: font(15, 14, 16),
+                  }}
+                >
+                  {section.heading}
+                </Paragraph>
+                <Paragraph
+                  style={{
+                    color: "#475569",
+                    fontSize: font(15, 14, 16),
+                    lineHeight: font(22, 21, 23),
+                  }}
+                >
+                  {section.body}
+                </Paragraph>
+              </YStack>
+            ))}
+          </YStack>
+        </YStack>
       </ScrollView>
-    </View>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f4f6fb",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 20,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#0f172a",
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 20,
-  },
-  sectionSpacing: {
-    marginTop: 20,
-  },
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0f172a",
-    marginBottom: 8,
-  },
-  sectionBody: {
-    fontSize: 14,
-    fontWeight: "400",
-    color: "#475569",
-    lineHeight: 22,
-  },
-});

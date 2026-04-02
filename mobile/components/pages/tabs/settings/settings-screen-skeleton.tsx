@@ -107,6 +107,9 @@ export default function SettingsScreenSkeleton() {
               <Skeleton width={140} height={16} borderRadius={7} />
               <Skeleton width={180} height={12} borderRadius={6} />
             </YStack>
+
+            {/* Edit pill placeholder */}
+            <Skeleton width={46} height={30} borderRadius={8} />
           </XStack>
 
           {/* Sections */}

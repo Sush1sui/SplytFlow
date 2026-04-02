@@ -1,22 +1,17 @@
 import React, { useCallback, useState } from "react";
-import {
-  ScrollView,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Text,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Alert, ScrollView } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Input, Paragraph, Spinner, XStack, YStack } from "tamagui";
 import { useAuthState, useAuthActions } from "@/lib/context/auth-context";
+import useTabResponsive from "../shared/use-tab-responsive";
+import SettingsPageHeader from "./settings-page-header";
 
 export default function EditProfilePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { font, space } = useTabResponsive();
   const { user } = useAuthState();
   const { updateProfile } = useAuthActions();
 
@@ -57,208 +52,158 @@ export default function EditProfilePage() {
   }, [firstName, lastName, email, updateProfile, router]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <YStack
+      style={{ flex: 1, backgroundColor: "#f4f6fb", paddingTop: insets.top }}
+    >
       <ScrollView
         contentContainerStyle={[
-          styles.scrollContent,
+          {
+            paddingHorizontal: 20,
+            paddingTop: 16,
+          },
           { paddingBottom: insets.bottom + 110 },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={saving}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={18}
-              color="#64748b"
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
-        </View>
+        <YStack gap="$5">
+          <SettingsPageHeader title="Edit Profile" disabled={saving} />
 
-        {/* Avatar */}
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
+          <YStack
+            style={{
+              alignSelf: "center",
+              width: 96,
+              height: 96,
+              borderRadius: 48,
+              backgroundColor: "#dde4ff",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 2,
+              borderColor: "#ffffff",
+              shadowColor: "#0f172a",
+              shadowOpacity: 0.08,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 2,
+            }}
+          >
             <MaterialCommunityIcons
               name="account-outline"
               size={52}
               color="#4f46e5"
             />
-          </View>
-          <View style={styles.editBadge}>
-            <MaterialCommunityIcons name="pencil" size={13} color="#ffffff" />
-          </View>
-        </View>
+          </YStack>
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* First & Last Name row */}
-          <View style={styles.nameRow}>
-            <View style={styles.halfField}>
-              <Text style={styles.label}>First Name</Text>
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First Name"
+          <YStack gap="$3">
+            <XStack gap="$2.5">
+              <YStack style={{ flex: 1 }} gap="$1.5">
+                <Paragraph
+                  style={{
+                    color: "#232c3d",
+                    fontWeight: "600",
+                    fontSize: font(14, 12, 15),
+                  }}
+                >
+                  First Name
+                </Paragraph>
+                <Input
+                  style={{
+                    backgroundColor: "#f4f6fb",
+                    borderColor: "#cfd6e4",
+                    borderRadius: 10,
+                    height: 48,
+                  }}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="John"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="words"
+                  editable={!saving}
+                />
+              </YStack>
+
+              <YStack style={{ flex: 1 }} gap="$1.5">
+                <Paragraph
+                  style={{
+                    color: "#232c3d",
+                    fontWeight: "600",
+                    fontSize: font(14, 12, 15),
+                  }}
+                >
+                  Last Name
+                </Paragraph>
+                <Input
+                  style={{
+                    backgroundColor: "#f4f6fb",
+                    borderColor: "#cfd6e4",
+                    borderRadius: 10,
+                    height: 48,
+                  }}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Doe"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="words"
+                  editable={!saving}
+                />
+              </YStack>
+            </XStack>
+
+            <YStack gap="$1.5">
+              <Paragraph
+                style={{
+                  color: "#232c3d",
+                  fontWeight: "600",
+                  fontSize: font(14, 12, 15),
+                }}
+              >
+                Email
+              </Paragraph>
+              <Input
+                style={{
+                  backgroundColor: "#f4f6fb",
+                  borderColor: "#cfd6e4",
+                  borderRadius: 10,
+                  height: 48,
+                }}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="hello@example.com"
                 placeholderTextColor="#94a3b8"
-                autoCapitalize="words"
+                keyboardType="email-address"
+                autoCapitalize="none"
                 editable={!saving}
               />
-            </View>
-            <View style={styles.halfField}>
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last Name"
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="words"
-                editable={!saving}
-              />
-            </View>
-          </View>
+            </YStack>
+          </YStack>
 
-          {/* Email */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email address"
-              placeholderTextColor="#94a3b8"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!saving}
-            />
-          </View>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          activeOpacity={0.85}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          )}
-        </TouchableOpacity>
+          <Button
+            style={{
+              marginTop: space(12),
+              height: 52,
+              borderRadius: 12,
+              backgroundColor: "#4f46e5",
+              borderColor: "#4f46e5",
+            }}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Spinner color="#ffffff" />
+            ) : (
+              <Paragraph
+                style={{
+                  color: "#ffffff",
+                  fontWeight: "700",
+                  fontSize: font(16, 14, 17),
+                }}
+              >
+                Save Changes
+              </Paragraph>
+            )}
+          </Button>
+        </YStack>
       </ScrollView>
-    </View>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f4f6fb",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 32,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#0f172a",
-  },
-  avatarContainer: {
-    alignSelf: "center",
-    marginBottom: 32,
-    position: "relative",
-  },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "#dde4ff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editBadge: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#4f46e5",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#f4f6fb",
-  },
-  form: {
-    gap: 16,
-    marginBottom: 40,
-  },
-  nameRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  halfField: {
-    flex: 1,
-    gap: 6,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  input: {
-    height: 48,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: "#0f172a",
-  },
-  saveButton: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#4f46e5",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-});

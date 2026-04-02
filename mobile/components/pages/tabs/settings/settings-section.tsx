@@ -1,7 +1,6 @@
 import React from "react";
-import { TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Paragraph, XStack, YStack } from "tamagui";
+import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { useRouter } from "expo-router";
 import useTabResponsive from "../shared/use-tab-responsive";
 
@@ -45,9 +44,11 @@ export default function SettingsSection({
         }}
       >
         {items.map((item, index) => (
-          <TouchableOpacity
+          <Button
+            unstyled
+            chromeless
             key={item.label}
-            activeOpacity={0.7}
+            pressStyle={{ opacity: 0.72, background: "#f8fafc" }}
             onPress={() =>
               router.push(`/(tabs)/(settings)${item.route}` as never)
             }
@@ -83,7 +84,7 @@ export default function SettingsSection({
                 color="#9aa5b5"
               />
             </XStack>
-          </TouchableOpacity>
+          </Button>
         ))}
       </YStack>
     </YStack>

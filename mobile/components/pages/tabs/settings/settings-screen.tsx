@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, TouchableOpacity } from "react-native";
+import { ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { useRouter } from "expo-router";
@@ -116,6 +116,34 @@ export default function SettingsScreen() {
               {user?.email ?? "—"}
             </Paragraph>
           </YStack>
+
+          <Button
+            unstyled
+            chromeless
+            onPress={() =>
+              router.push("/(tabs)/(settings)/edit-profile" as never)
+            }
+            pressStyle={{ opacity: 0.72, background: "transparent" }}
+            style={{
+              minWidth: 46,
+              height: 30,
+              borderRadius: 8,
+              backgroundColor: "#eef2ff",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 10,
+            }}
+          >
+            <Paragraph
+              style={{
+                color: "#4f46e5",
+                fontWeight: "700",
+                fontSize: font(13, 11, 14),
+              }}
+            >
+              Edit
+            </Paragraph>
+          </Button>
         </XStack>
 
         <YStack style={{ marginTop: space(18) }} gap="$3">
