@@ -1,11 +1,17 @@
 import { SaleRow } from "@/types/sale.types";
 import { computeNetSale } from "./sale";
+import {
+  currencySymbol,
+  type SupportedCurrencyCode,
+} from "@/constants/currency";
 
 type BuildSalesCsvParams = {
   rows: SaleRow[];
   rangeLabel: string;
   splitPercentage: number;
   exportedAt: Date;
+  currencyCode: SupportedCurrencyCode;
+  convertStoredToDisplay: (amount: number) => number;
 };
 
 function roundToTwo(value: number): number {
@@ -16,8 +22,23 @@ function formatAmount(value: number): string {
   return roundToTwo(value).toFixed(2);
 }
 
-function formatCurrency(value: number): string {
-  return `$${formatAmount(value)}`;
+function formatCurrency(
+  value: number,
+  currencyCode: SupportedCurrencyCode,
+): string {
+  const absolute = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  try {
+    const number = new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(absolute);
+
+    return `${sign}${currencySymbol(currencyCode)}${number}`;
+  } catch {
+    return `${sign}${currencySymbol(currencyCode)}${formatAmount(absolute)}`;
+  }
 }
 
 function formatDate(value: string): string {
@@ -68,21 +89,30 @@ export function buildSalesCsv({
   rangeLabel,
   splitPercentage,
   exportedAt,
+  currencyCode,
+  convertStoredToDisplay,
 }: BuildSalesCsvParams): string {
   const normalizedRows = [...rows].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   const roundedSplitPct = roundToTwo(splitPercentage);
-  const grossTotal = normalizedRows.reduce((sum, row) => sum + row.amount, 0);
-  const splitTotal = normalizedRows.reduce(
+  const grossTotalStored = normalizedRows.reduce(
+    (sum, row) => sum + row.amount,
+    0,
+  );
+  const splitTotalStored = normalizedRows.reduce(
     (sum, row) => sum + (row.amount * splitPercentage) / 100,
     0,
   );
-  const netTotal = normalizedRows.reduce(
+  const netTotalStored = normalizedRows.reduce(
     (sum, row) => sum + computeNetSale(row.amount, splitPercentage),
     0,
   );
+
+  const grossTotal = convertStoredToDisplay(grossTotalStored);
+  const splitTotal = convertStoredToDisplay(splitTotalStored);
+  const netTotal = convertStoredToDisplay(netTotalStored);
 
   const lines: string[] = [];
 
@@ -90,10 +120,18 @@ export function buildSalesCsv({
   lines.push(toCsvLine(["Range", rangeLabel]));
   lines.push(toCsvLine(["Exported", formatExportedAt(exportedAt)]));
   lines.push(toCsvLine(["Records", String(normalizedRows.length)]));
+  lines.push(toCsvLine(["Currency", currencyCode]));
   lines.push(toCsvLine(["Applied Split", `${roundedSplitPct}%`]));
-  lines.push(toCsvLine(["Total Gross", formatCurrency(grossTotal)]));
-  lines.push(toCsvLine(["Total Split Deducted", formatCurrency(splitTotal)]));
-  lines.push(toCsvLine(["Total Net", formatCurrency(netTotal)]));
+  lines.push(
+    toCsvLine(["Total Gross", formatCurrency(grossTotal, currencyCode)]),
+  );
+  lines.push(
+    toCsvLine([
+      "Total Split Deducted",
+      formatCurrency(splitTotal, currencyCode),
+    ]),
+  );
+  lines.push(toCsvLine(["Total Net", formatCurrency(netTotal, currencyCode)]));
   lines.push("");
 
   lines.push(
@@ -109,17 +147,22 @@ export function buildSalesCsv({
   );
 
   normalizedRows.forEach((row, index) => {
-    const splitDeduction = (row.amount * splitPercentage) / 100;
+    const splitDeductionStored = (row.amount * splitPercentage) / 100;
+    const grossDisplay = convertStoredToDisplay(row.amount);
+    const splitDeductionDisplay = convertStoredToDisplay(splitDeductionStored);
+    const netDisplay = convertStoredToDisplay(
+      computeNetSale(row.amount, splitPercentage),
+    );
 
     lines.push(
       toCsvLine([
         String(index + 1),
         formatDate(row.createdAt),
         formatTime(row.createdAt),
-        formatCurrency(row.amount),
+        formatCurrency(grossDisplay, currencyCode),
         `${roundedSplitPct}%`,
-        formatCurrency(splitDeduction),
-        formatCurrency(computeNetSale(row.amount, splitPercentage)),
+        formatCurrency(splitDeductionDisplay, currencyCode),
+        formatCurrency(netDisplay, currencyCode),
       ]),
     );
   });
@@ -129,10 +172,10 @@ export function buildSalesCsv({
       "TOTAL",
       "",
       "",
-      formatCurrency(grossTotal),
+      formatCurrency(grossTotal, currencyCode),
       `${roundedSplitPct}%`,
-      formatCurrency(splitTotal),
-      formatCurrency(netTotal),
+      formatCurrency(splitTotal, currencyCode),
+      formatCurrency(netTotal, currencyCode),
     ]),
   );
 

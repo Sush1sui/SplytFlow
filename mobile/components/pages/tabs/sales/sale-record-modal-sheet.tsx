@@ -49,6 +49,8 @@ export default function SaleRecordModalSheet({
   submitButtonStyle,
   onSubmit,
 }: SaleRecordModalSheetProps) {
+  const amountInputLeftPadding = currency.length >= 3 ? 56 : 48;
+
   return (
     <YStack style={sheetStyle} gap="$2.5">
       {/* Header */}
@@ -81,7 +83,11 @@ export default function SaleRecordModalSheet({
               <Paragraph style={fieldTextStyle}>{dateLabel}</Paragraph>
             </Button>
             <YStack style={leftAdornmentStyle}>
-              <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#9aa5b6" />
+              <MaterialCommunityIcons
+                name="calendar-month-outline"
+                size={18}
+                color="#9aa5b6"
+              />
             </YStack>
             <YStack style={rightAdornmentStyle}>
               <MaterialCommunityIcons
@@ -104,10 +110,21 @@ export default function SaleRecordModalSheet({
               keyboardType="decimal-pad"
               placeholder="0.00"
               placeholderTextColor="#94a3b8"
-              style={amountInputStyle}
+              style={{
+                ...amountInputStyle,
+                paddingLeft: amountInputLeftPadding,
+              }}
             />
-            <YStack style={leftAdornmentStyle}>
-              <Paragraph style={{ color: "#8a97aa", fontWeight: "700", fontSize: 16 }}>
+            <YStack
+              style={{
+                ...leftAdornmentStyle,
+                minWidth: 34,
+                alignItems: "center",
+              }}
+            >
+              <Paragraph
+                style={{ color: "#8a97aa", fontWeight: "700", fontSize: 16 }}
+              >
                 {currency}
               </Paragraph>
             </YStack>
@@ -118,11 +135,19 @@ export default function SaleRecordModalSheet({
         <YStack gap="$1">
           <Paragraph style={labelStyle}>Time</Paragraph>
           <YStack style={{ position: "relative" }}>
-            <Button unstyled onPress={onOpenTimePicker} style={fieldButtonStyle}>
+            <Button
+              unstyled
+              onPress={onOpenTimePicker}
+              style={fieldButtonStyle}
+            >
               <Paragraph style={fieldTextStyle}>{selectedLocalTime}</Paragraph>
             </Button>
             <YStack style={leftAdornmentStyle}>
-              <MaterialCommunityIcons name="clock-outline" size={18} color="#9aa5b6" />
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={18}
+                color="#9aa5b6"
+              />
             </YStack>
             <YStack style={rightAdornmentStyle}>
               <MaterialCommunityIcons
@@ -136,11 +161,19 @@ export default function SaleRecordModalSheet({
       </YStack>
 
       {/* Submit */}
-      <Button disabled={!canSubmit} onPress={onSubmit} style={submitButtonStyle}>
+      <Button
+        disabled={!canSubmit}
+        onPress={onSubmit}
+        style={submitButtonStyle}
+      >
         <Paragraph style={submitTextStyle}>
           {pending
-            ? mode === "add" ? "Saving..." : "Updating..."
-            : mode === "add" ? "Save Record" : "Update Record"}
+            ? mode === "add"
+              ? "Saving..."
+              : "Updating..."
+            : mode === "add"
+              ? "Save Record"
+              : "Update Record"}
         </Paragraph>
       </Button>
     </YStack>

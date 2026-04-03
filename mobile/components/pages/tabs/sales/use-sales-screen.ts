@@ -33,18 +33,12 @@ import useToast from "@/lib/context/toast-context";
 import useAlertDialog from "@/components/shared/use-alert-dialog";
 import { buildSalesCsv } from "@/lib/utils/sales-csv";
 import { saveSalesCsvToDevice } from "@/lib/utils/sales-csv-file";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 const CACHE_TTL = 60_000;
 
 function isStale(lastFetched: number | null): boolean {
   return lastFetched === null || Date.now() - lastFetched > CACHE_TTL;
-}
-
-function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function toFileNameToken(value: string): string {
@@ -66,6 +60,13 @@ export function useSalesScreen() {
   const { isNarrow, font, space } = useTabResponsive();
   const { showToast } = useToast();
   const { alertDialogProps, showConfirm } = useAlertDialog();
+  const {
+    activeCurrency,
+    convertStoredToDisplay,
+    convertDisplayToStored,
+    formatDisplayAmount,
+    formatStoredAmount,
+  } = useCurrencySettings();
 
   const [selectedRange, setSelectedRange] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -156,15 +157,25 @@ export function useSalesScreen() {
   const handleSubmitSale = useCallback(
     async (amount: number, localDate?: string, localTime?: string) => {
       if (!user?.id) return;
+      const storedAmount = convertDisplayToStored(amount);
       setMutating(true);
       try {
         if (modalMode === "edit" && activeSale) {
           await dispatch(
-            updateSale({ id: activeSale.id, userId: user.id, amount }),
+            updateSale({
+              id: activeSale.id,
+              userId: user.id,
+              amount: storedAmount,
+            }),
           ).unwrap();
         } else {
           await dispatch(
-            addSale({ userId: user.id, amount, localDate, localTime }),
+            addSale({
+              userId: user.id,
+              amount: storedAmount,
+              localDate,
+              localTime,
+            }),
           ).unwrap();
         }
         await Promise.all([
@@ -182,7 +193,15 @@ export function useSalesScreen() {
         setMutating(false);
       }
     },
-    [activeSale, dispatch, handleCloseModal, modalMode, showToast, user?.id],
+    [
+      activeSale,
+      convertDisplayToStored,
+      dispatch,
+      handleCloseModal,
+      modalMode,
+      showToast,
+      user?.id,
+    ],
   );
 
   const handleDeleteSale = useCallback(
@@ -282,6 +301,8 @@ export function useSalesScreen() {
         rangeLabel: selectedRangeLabel,
         splitPercentage: totalSplitPct,
         exportedAt: new Date(),
+        currencyCode: activeCurrency,
+        convertStoredToDisplay,
       });
 
       const fileName = buildCsvFileName(selectedRangeLabel);
@@ -304,7 +325,9 @@ export function useSalesScreen() {
       setExportingCsv(false);
     }
   }, [
+    convertStoredToDisplay,
     exportingCsv,
+    activeCurrency,
     selectedPreset,
     selectedRangeLabel,
     showToast,
@@ -312,25 +335,25 @@ export function useSalesScreen() {
     user?.id,
   ]);
 
-  const grossSales = saleState.sales[currentKey] ?? 0;
-  const grossPrior = saleState.sales[comparisonKey] ?? 0;
-  const netSales = computeNetSale(grossSales, totalSplitPct);
-  const netPrior = computeNetSale(grossPrior, totalSplitPct);
-  const grossChange = computePercentChange(grossSales, grossPrior);
-  const netChange = computePercentChange(netSales, netPrior);
+  const grossSalesStored = saleState.sales[currentKey] ?? 0;
+  const grossPriorStored = saleState.sales[comparisonKey] ?? 0;
+  const netSalesStored = computeNetSale(grossSalesStored, totalSplitPct);
+  const netPriorStored = computeNetSale(grossPriorStored, totalSplitPct);
+  const grossChange = computePercentChange(grossSalesStored, grossPriorStored);
+  const netChange = computePercentChange(netSalesStored, netPriorStored);
 
   const isLoading = saleState.rangeStatus[selectedPreset] === "loading";
 
-  const rangeGrossSales = grossSales;
-  const rangeGrossPrior = grossPrior;
-  const rangeNetSales = netSales;
-  const rangeNetPrior = netPrior;
+  const rangeGrossSales = convertStoredToDisplay(grossSalesStored);
+  const rangeGrossPrior = convertStoredToDisplay(grossPriorStored);
+  const rangeNetSales = convertStoredToDisplay(netSalesStored);
+  const rangeNetPrior = convertStoredToDisplay(netPriorStored);
   const rangeGrossChange = grossChange;
   const rangeNetChange = netChange;
   const rangeGrossDelta = rangeGrossSales - rangeGrossPrior;
   const rangeNetDelta = rangeNetSales - rangeNetPrior;
   const rangeRetentionPct =
-    rangeGrossSales > 0 ? (rangeNetSales / rangeGrossSales) * 100 : 100;
+    grossSalesStored > 0 ? (netSalesStored / grossSalesStored) * 100 : 100;
 
   const anomalyFlags = useMemo(() => {
     const flags: string[] = [];
@@ -371,12 +394,12 @@ export function useSalesScreen() {
   ]);
 
   const whatChangedText = useMemo(() => {
-    if (rangeGrossSales === 0 && rangeGrossPrior === 0) {
+    if (grossSalesStored === 0 && grossPriorStored === 0) {
       return `No sales were recorded for ${selectedRangeLabel.toLowerCase()} or ${comparisonPeriodLabel}.`;
     }
 
-    if (rangeGrossPrior === 0 && rangeGrossSales > 0) {
-      return `${selectedRangeLabel} recorded ${formatCurrency(rangeGrossSales)} in gross sales and ${formatCurrency(rangeNetSales)} in net sales, versus no sales in ${comparisonPeriodLabel}.`;
+    if (grossPriorStored === 0 && grossSalesStored > 0) {
+      return `${selectedRangeLabel} recorded ${formatStoredAmount(grossSalesStored)} in gross sales and ${formatStoredAmount(netSalesStored)} in net sales, versus no sales in ${comparisonPeriodLabel}.`;
     }
 
     const grossDirection = rangeGrossDelta >= 0 ? "increased" : "decreased";
@@ -384,14 +407,16 @@ export function useSalesScreen() {
     const grossDeltaAbs = Math.abs(rangeGrossDelta);
     const netDeltaAbs = Math.abs(rangeNetDelta);
 
-    return `${selectedRangeLabel} gross ${grossDirection} by ${formatCurrency(grossDeltaAbs)} compared with ${comparisonPeriodLabel}. With ${Math.round(totalSplitPct * 10) / 10}% total splits, net ${netDirection} by ${formatCurrency(netDeltaAbs)}.`;
+    return `${selectedRangeLabel} gross ${grossDirection} by ${formatDisplayAmount(grossDeltaAbs)} compared with ${comparisonPeriodLabel}. With ${Math.round(totalSplitPct * 10) / 10}% total splits, net ${netDirection} by ${formatDisplayAmount(netDeltaAbs)}.`;
   }, [
     comparisonPeriodLabel,
+    formatDisplayAmount,
+    formatStoredAmount,
+    grossPriorStored,
+    grossSalesStored,
+    netSalesStored,
     rangeGrossDelta,
-    rangeGrossPrior,
-    rangeGrossSales,
     rangeNetDelta,
-    rangeNetSales,
     selectedRangeLabel,
     totalSplitPct,
   ]);
@@ -405,7 +430,8 @@ export function useSalesScreen() {
         color: SPLIT_COLORS[i % SPLIT_COLORS.length],
       }));
     const total = segments.reduce((t, s) => t + s.value, 0);
-    const netPct = grossSales > 0 ? (netSales / grossSales) * 100 : 0;
+    const netPct =
+      grossSalesStored > 0 ? (netSalesStored / grossSalesStored) * 100 : 0;
     const splitPct = Math.max(0, 100 - netPct);
     const normalized = segments.map((s) => ({
       ...s,
@@ -418,7 +444,7 @@ export function useSalesScreen() {
       ],
       netSalesPercentage: netPct,
     };
-  }, [activeSplit, grossSales, netSales]);
+  }, [activeSplit, grossSalesStored, netSalesStored]);
 
   return {
     // layout
@@ -446,8 +472,8 @@ export function useSalesScreen() {
     alertDialogProps,
     // analytics
     isLoading,
-    grossSales,
-    netSales,
+    grossSales: rangeGrossSales,
+    netSales: rangeNetSales,
     grossChange,
     netChange,
     comparisonLabel,

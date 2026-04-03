@@ -11,16 +11,16 @@ import {
 } from "@/lib/store/logSlice";
 import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
 import { fetchSales, fetchSalesRange } from "@/lib/store/saleSlice";
-import useToast from "@/lib/context/toast-context";
 import LogCard from "./log-card";
 import NoLogCard from "./no-log-card";
 import HomeSaleCard from "./home-sale-card";
 import QuickAddSale from "./quick-add-sale";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 export default function HomeScreen() {
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
-  const { showToast } = useToast();
+  const { currencySymbol, convertStoredToDisplay } = useCurrencySettings();
   const logs = useAppSelector((s) => s.log.list);
   const splits = useAppSelector((s) => s.split);
   const sales = useAppSelector((s) => s.sale);
@@ -41,10 +41,15 @@ export default function HomeScreen() {
       ? activeSplit.splits.reduce((sum, split) => sum + split.value, 0)
       : 0;
 
-    setTotalSales(today);
-    setNetSales(computeNetSale(today, totalSplitPct));
+    setTotalSales(convertStoredToDisplay(today));
+    setNetSales(convertStoredToDisplay(computeNetSale(today, totalSplitPct)));
     setSalesChangePercent(computePercentChange(today, yesterday));
-  }, [sales.sales, splits.splitGroups, splits.activeSplitGroupId]);
+  }, [
+    convertStoredToDisplay,
+    sales.sales,
+    splits.splitGroups,
+    splits.activeSplitGroupId,
+  ]);
 
   useEffect(() => {
     dispatch(hydrateLogs());
@@ -114,7 +119,7 @@ export default function HomeScreen() {
           totalSales={totalSales}
           netSales={netSales}
           salesChangePercent={salesChangePercent}
-          currency="$"
+          currency={currencySymbol}
         />
 
         <QuickAddSale />
@@ -152,7 +157,6 @@ export default function HomeScreen() {
               <LogCard
                 key={`${log.id}-${index}`}
                 log={log}
-                currency="$"
                 onDelete={() => handleDeleteLog(index)}
               />
             ))

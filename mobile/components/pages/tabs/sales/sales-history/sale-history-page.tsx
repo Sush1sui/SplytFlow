@@ -19,12 +19,15 @@ import AlertDialogModal from "@/components/shared/alert-dialog-modal";
 import useAlertDialog from "@/components/shared/use-alert-dialog";
 import SaleHistoryRow from "../sale-history-row";
 import SaleRecordModal from "../sale-record-modal";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 export default function SaleHistoryPage() {
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
   const { alertDialogProps, showConfirm } = useAlertDialog();
+  const { currencySymbol, convertDisplayToStored, convertStoredToDisplay } =
+    useCurrencySettings();
   const today = new Date();
 
   const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
@@ -138,7 +141,11 @@ export default function SaleHistoryPage() {
     setMutating(true);
     try {
       await dispatch(
-        updateSale({ id: editingSale.id, userId: user.id, amount }),
+        updateSale({
+          id: editingSale.id,
+          userId: user.id,
+          amount: convertDisplayToStored(amount),
+        }),
       ).unwrap();
       await Promise.all([
         loadHistory(),
@@ -244,10 +251,13 @@ export default function SaleHistoryPage() {
         visible={modalVisible}
         mode="edit"
         saleCreatedAt={editingSale?.createdAt ?? null}
-        initialAmount={editingSale?.amount ?? null}
+        initialAmount={
+          editingSale ? convertStoredToDisplay(editingSale.amount) : null
+        }
         onClose={handleCloseModal}
         onSubmit={handleSubmitEdit}
         pending={mutating}
+        currency={currencySymbol}
       />
 
       <AlertDialogModal {...alertDialogProps} />

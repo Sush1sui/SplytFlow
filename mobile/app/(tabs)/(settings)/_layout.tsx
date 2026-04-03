@@ -14,6 +14,7 @@ export default function SettingsLayout() {
       />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="change-password" />
+      <Stack.Screen name="currency" />
       <Stack.Screen name="privacy-policy" />
       <Stack.Screen name="terms-of-service" />
       <Stack.Screen name="faqs-support" />

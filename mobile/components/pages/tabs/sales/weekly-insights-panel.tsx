@@ -1,7 +1,8 @@
 import React from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Paragraph, Text, XStack, YStack } from "tamagui";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { SNAPSHOT_COLORS } from "@/constants/sales";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 type WeeklyInsightsPanelProps = {
   isNarrow: boolean;
@@ -14,14 +15,9 @@ type WeeklyInsightsPanelProps = {
   totalSplitPct: number;
   anomalyFlags: string[];
   whatChangedText: string;
+  exportingCsv: boolean;
+  onExportCsv: () => void;
 };
-
-function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function formatPercent(value: number, comparisonLabel: string): string {
   const rounded = Math.round(value * 10) / 10;
@@ -40,15 +36,13 @@ function splitPctColor(value: number): string {
 }
 
 const HIGHLIGHT_TOKEN_REGEX =
-  /(\$[\d,]+(?:\.\d{2})?|[+-]?\d+(?:\.\d+)?%|\b(?:increased|rose|jumped)\b|\b(?:decreased|fell|dropped)\b|\b(?:gross|net)\b)/gi;
+  /((?:[A-Z]{3}\s*)?[\$€£¥₱₹₩฿₫]?-?\d[\d,]*(?:\.\d{2})?|[+-]?\d+(?:\.\d+)?%|\b(?:increased|rose|jumped)\b|\b(?:decreased|fell|dropped)\b|\b(?:gross|net)\b)/gi;
 
 function highlightStyle(
   token: string,
 ): { color: string; fontWeight: "700" } | null {
   const lower = token.toLowerCase();
 
-  if (/^\$/.test(token))
-    return { color: SNAPSHOT_COLORS.money, fontWeight: "700" };
   if (/%$/.test(token)) {
     if (token.startsWith("+")) {
       return { color: SNAPSHOT_COLORS.positive, fontWeight: "700" };
@@ -59,6 +53,10 @@ function highlightStyle(
     }
 
     return { color: SNAPSHOT_COLORS.percent, fontWeight: "700" };
+  }
+
+  if (/\d/.test(token)) {
+    return { color: SNAPSHOT_COLORS.money, fontWeight: "700" };
   }
 
   if (lower === "increased" || lower === "rose" || lower === "jumped") {
@@ -111,7 +109,10 @@ export default function WeeklyInsightsPanel({
   totalSplitPct,
   anomalyFlags,
   whatChangedText,
+  exportingCsv,
+  onExportCsv,
 }: WeeklyInsightsPanelProps) {
+  const { formatDisplayAmount } = useCurrencySettings();
   const roundedSplitPct = Math.round(totalSplitPct * 10) / 10;
 
   return (
@@ -126,15 +127,57 @@ export default function WeeklyInsightsPanel({
       }}
       gap="$3"
     >
-      <Paragraph
+      <XStack
         style={{
-          color: SNAPSHOT_COLORS.title,
-          fontWeight: "800",
-          fontSize: 18,
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
-        Range Snapshot
-      </Paragraph>
+        <Paragraph
+          style={{
+            color: SNAPSHOT_COLORS.title,
+            fontWeight: "800",
+            fontSize: 18,
+          }}
+        >
+          Range Snapshot
+        </Paragraph>
+
+        <Button
+          chromeless
+          disabled={exportingCsv}
+          onPress={onExportCsv}
+          style={{
+            borderRadius: 999,
+            height: 34,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: "#dbe4ff",
+            backgroundColor: exportingCsv ? "#eef2ff" : "#eef2ff",
+            opacity: exportingCsv ? 0.72 : 1,
+          }}
+          pressStyle={{ opacity: 0.82 }}
+        >
+          <XStack style={{ alignItems: "center" }} gap="$1.5">
+            <MaterialCommunityIcons
+              name={exportingCsv ? "download-lock" : "download-outline"}
+              size={16}
+              color="#4f46e5"
+            />
+            <Paragraph
+              style={{
+                color: "#4f46e5",
+                fontSize: 12,
+                fontWeight: "800",
+              }}
+            >
+              {exportingCsv ? "Downloading..." : "Export CSV"}
+            </Paragraph>
+          </XStack>
+        </Button>
+      </XStack>
 
       <XStack style={{ flexDirection: isNarrow ? "column" : "row" }} gap="$2.5">
         <YStack
@@ -153,7 +196,7 @@ export default function WeeklyInsightsPanel({
           <Paragraph
             style={{ color: "#0f172a", fontWeight: "800", fontSize: 22 }}
           >
-            {formatCurrency(grossSales)}
+            {formatDisplayAmount(grossSales)}
           </Paragraph>
           <Paragraph
             style={{
@@ -182,7 +225,7 @@ export default function WeeklyInsightsPanel({
           <Paragraph
             style={{ color: "#4f46e5", fontWeight: "800", fontSize: 22 }}
           >
-            {formatCurrency(netSales)}
+            {formatDisplayAmount(netSales)}
           </Paragraph>
           <Paragraph
             style={{

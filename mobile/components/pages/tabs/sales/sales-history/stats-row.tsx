@@ -1,5 +1,6 @@
 import React from "react";
 import { Paragraph, XStack } from "tamagui";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 type StatsRowProps = {
   recordCount: number;
@@ -7,6 +8,8 @@ type StatsRowProps = {
 };
 
 export default function StatsRow({ recordCount, totalAmount }: StatsRowProps) {
+  const { formatStoredAmount } = useCurrencySettings();
+
   return (
     <XStack
       style={{
@@ -19,7 +22,7 @@ export default function StatsRow({ recordCount, totalAmount }: StatsRowProps) {
         {recordCount} Records
       </Paragraph>
       <Paragraph style={{ color: "#4f46e5", fontWeight: "700", fontSize: 18 }}>
-        Total: ${totalAmount.toFixed(2)}
+        Total: {formatStoredAmount(totalAmount)}
       </Paragraph>
     </XStack>
   );

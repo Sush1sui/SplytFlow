@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Pressable } from "react-native";
-import { useSegments } from "expo-router";
+import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Paragraph, XStack, YStack } from "tamagui";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -10,18 +10,41 @@ type TabItem = {
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   segment: TabSegment;
+  href: Href;
 };
 
 const TAB_ITEMS: TabItem[] = [
-  { label: "Home",     icon: "home-outline",        segment: "(home)"     },
-  { label: "Sales",    icon: "chart-line-variant",   segment: "(sales)"    },
-  { label: "Splits",   icon: "layers-outline",       segment: "(splits)"   },
-  { label: "Settings", icon: "cog-outline",          segment: "(settings)" },
+  {
+    label: "Home",
+    icon: "home-outline",
+    segment: "(home)",
+    href: "/(tabs)/(home)",
+  },
+  {
+    label: "Sales",
+    icon: "chart-line-variant",
+    segment: "(sales)",
+    href: "/(tabs)/(sales)",
+  },
+  {
+    label: "Splits",
+    icon: "layers-outline",
+    segment: "(splits)",
+    href: "/(tabs)/(splits)",
+  },
+  {
+    label: "Settings",
+    icon: "cog-outline",
+    segment: "(settings)",
+    href: "/(tabs)/(settings)",
+  },
 ];
 
 function BottomTabNav() {
   const { activeTab, setActiveTab } = useTabContext();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
 
   return (
     <XStack
@@ -46,7 +69,15 @@ function BottomTabNav() {
           <Pressable
             key={item.label}
             style={{ flex: 1 }}
-            onPress={() => setActiveTab(item.segment)}
+            onPress={() => {
+              setActiveTab(item.segment);
+
+              // Route-level navigation ensures nested sub-pages are dismissed
+              // when switching tabs (for example from settings/edit-profile).
+              if (pathname !== item.href) {
+                router.replace(item.href);
+              }
+            }}
           >
             <YStack
               style={{

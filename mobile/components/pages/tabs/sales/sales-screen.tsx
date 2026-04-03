@@ -6,12 +6,15 @@ import SalesAnalyticsSection from "./sales-analytics-section";
 import SalesHistorySection from "./sales-history-section";
 import SaleRecordModal from "./sale-record-modal";
 import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import useCurrencySettings from "@/lib/context/currency-context";
 import {
   screenContainerStyle,
   scrollContentStyle,
 } from "./sales-screen.styles";
 
 export default function SalesScreen() {
+  const { currencySymbol, convertStoredToDisplay } = useCurrencySettings();
+
   const {
     router,
     isNarrow,
@@ -86,10 +89,13 @@ export default function SalesScreen() {
         visible={modalVisible}
         mode={modalMode}
         saleCreatedAt={activeSale?.createdAt ?? null}
-        initialAmount={activeSale?.amount ?? null}
+        initialAmount={
+          activeSale ? convertStoredToDisplay(activeSale.amount) : null
+        }
         onClose={handleCloseModal}
         onSubmit={handleSubmitSale}
         pending={mutating}
+        currency={currencySymbol}
       />
 
       <AlertDialogModal {...alertDialogProps} />

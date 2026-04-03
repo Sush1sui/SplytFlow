@@ -13,6 +13,15 @@ function HomeSaleCard({
   salesChangePercent: number;
   currency: string;
 }) {
+  const totalSalesLabel = `${currency}${totalSales.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+  const netSalesLabel = `${currency}${netSales.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
   return (
     <YStack
       style={{
@@ -39,8 +48,7 @@ function HomeSaleCard({
           fontWeight: "900",
         }}
       >
-        {currency}
-        {totalSales.toFixed(2)}
+        {totalSalesLabel}
       </Paragraph>
       <YStack
         style={{ height: 1, backgroundColor: "rgba(255,255,255,0.25)" }}
@@ -54,8 +62,7 @@ function HomeSaleCard({
           <Paragraph
             style={{ color: "#ffffff", fontSize: 24, fontWeight: "800" }}
           >
-            {currency}
-            {netSales.toFixed(2)}
+            {netSalesLabel}
           </Paragraph>
         </YStack>
 

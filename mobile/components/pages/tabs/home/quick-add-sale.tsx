@@ -2,20 +2,19 @@ import { Keyboard, TouchableWithoutFeedback } from "react-native";
 import { YStack, Paragraph, XStack, Input, Button, Spinner } from "tamagui";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useCallback, useState } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { useAppDispatch } from "@/lib/store/hooks";
 import { useAuthState } from "@/lib/context/auth-context";
 import useToast from "@/lib/context/toast-context";
 import { addSale, fetchSales, fetchSalesHistory } from "@/lib/store/saleSlice";
 import { hydrateLogs } from "@/lib/store/logSlice";
+import useCurrencySettings from "@/lib/context/currency-context";
 
-export default function QuickAddSale({
-  currency = "$",
-}: {
-  currency?: string;
-}) {
+export default function QuickAddSale() {
   const dispatch = useAppDispatch();
   const { user } = useAuthState();
   const { showToast } = useToast();
+  const { currencySymbol, convertDisplayToStored } = useCurrencySettings();
+  const amountInputLeftPadding = currencySymbol.length >= 3 ? 56 : 48;
 
   const [amountInput, setAmountInput] = useState("");
   const [amount, setAmount] = useState<number>(0);
@@ -33,7 +32,9 @@ export default function QuickAddSale({
 
     setIsSubmitting(true);
     try {
-      await dispatch(addSale({ userId: user.id, amount })).unwrap();
+      await dispatch(
+        addSale({ userId: user.id, amount: convertDisplayToStored(amount) }),
+      ).unwrap();
       try {
         await Promise.all([
           dispatch(fetchSales(user.id)).unwrap(),
@@ -108,7 +109,7 @@ export default function QuickAddSale({
                 borderColor: "#cfd6e4",
                 borderRadius: 10,
                 height: 48,
-                paddingLeft: 36,
+                paddingLeft: amountInputLeftPadding,
                 color: "#0f172a",
                 fontWeight: "700",
               }}
@@ -117,14 +118,16 @@ export default function QuickAddSale({
             <YStack
               style={{
                 position: "absolute",
-                left: 12,
+                left: 10,
                 top: 0,
                 bottom: 0,
                 justifyContent: "center",
+                minWidth: 34,
+                alignItems: "center",
               }}
             >
               <Paragraph style={{ color: "#6b7280", fontWeight: "700" }}>
-                {currency}
+                {currencySymbol}
               </Paragraph>
             </YStack>
           </YStack>

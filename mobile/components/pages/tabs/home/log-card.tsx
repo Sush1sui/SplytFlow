@@ -3,21 +3,21 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { memo } from "react";
 import { Button, XStack, YStack, Paragraph } from "tamagui";
 import { formatDateTime } from "@/lib/utils/sale";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 function LogCard({
   log,
-  currency = "$",
   onDelete,
   isDeleting = false,
 }: {
   log: RecentLogType;
-  currency: string;
   onDelete: () => void;
   isDeleting?: boolean;
 }) {
+  const { formatStoredAmount } = useCurrencySettings();
   const actionType = log.actionType ?? "create";
   const signedPrefix = actionType === "delete" ? "-" : "+";
-  const amountLabel = `${signedPrefix}${currency}${Math.abs(log.amount).toFixed(2)}`;
+  const amountLabel = `${signedPrefix}${formatStoredAmount(Math.abs(log.amount))}`;
   const timestampLabel = formatDateTime(log.createdAt);
 
   const actionMeta =

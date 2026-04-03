@@ -23,6 +23,11 @@ const accountItems = [
 
 const generalItems = [
   {
+    label: "Currency",
+    icon: "currency-usd" as const,
+    route: "/currency" as const,
+  },
+  {
     label: "Privacy Policy",
     icon: "shield-outline" as const,
     route: "/privacy-policy" as const,

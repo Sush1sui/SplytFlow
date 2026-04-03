@@ -1,5 +1,5 @@
 import React, { Dispatch, SetStateAction } from "react";
-import { Button, Paragraph, XStack } from "tamagui";
+import { Paragraph, XStack } from "tamagui";
 import { ranges } from "@/constants/sales";
 import AnalyticsFilterBadge from "./analytics-filter-badge";
 import NetSplitsDonutChart from "./net-splits-donut-chart";
@@ -74,25 +74,6 @@ function SalesAnalyticsSection({
         ))}
       </XStack>
 
-      <XStack style={{ marginTop: space(12), justifyContent: "flex-end" }}>
-        <Button
-          disabled={isLoading || exportingCsv}
-          onPress={onExportCsv}
-          style={{
-            borderRadius: 10,
-            height: 36,
-            paddingHorizontal: 14,
-            backgroundColor: "#dfe4ff",
-            borderColor: "#dfe4ff",
-            opacity: isLoading || exportingCsv ? 0.65 : 1,
-          }}
-        >
-          <Paragraph style={{ color: "#4f46e5", fontWeight: "800" }}>
-            {exportingCsv ? "Downloading..." : "Download CSV"}
-          </Paragraph>
-        </Button>
-      </XStack>
-
       {isLoading ? (
         <>
           <WeeklyInsightsPanelSkeleton isNarrow={isNarrow} />
@@ -111,6 +92,8 @@ function SalesAnalyticsSection({
             totalSplitPct={rangeInsights.totalSplitPct}
             anomalyFlags={rangeInsights.anomalyFlags}
             whatChangedText={rangeInsights.whatChangedText}
+            exportingCsv={exportingCsv}
+            onExportCsv={onExportCsv}
           />
           <NetSplitsDonutChart
             segments={donutData.segments}

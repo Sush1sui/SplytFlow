@@ -45,6 +45,7 @@ export default function TabsLayout() {
     pathname.includes("sale-history") ||
     pathname.includes("edit-profile") ||
     pathname.includes("change-password") ||
+    pathname.includes("currency") ||
     pathname.includes("privacy-policy") ||
     pathname.includes("terms-of-service") ||
     pathname.includes("faqs-support") ||
@@ -58,7 +59,6 @@ export default function TabsLayout() {
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
       <View style={{ flex: 1, backgroundColor: "#f4f6fb" }}>
-
         {/* Layer 0 — kept-alive screens, always mounted, toggled by display */}
         <View style={StyleSheet.absoluteFillObject}>
           <KeptAliveTab segment="(home)" activeTab={activeTab}>

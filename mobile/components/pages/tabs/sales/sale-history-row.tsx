@@ -2,10 +2,10 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { SaleRow } from "@/types/sale.types";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { formatDateTime } from "@/lib/utils/sale";
+import useCurrencySettings from "@/lib/context/currency-context";
 
 type SaleHistoryRowProps = {
   sale: SaleRow;
-  currency?: string;
   onEdit?: () => void;
   onDelete?: () => void;
   disabled?: boolean;
@@ -13,11 +13,12 @@ type SaleHistoryRowProps = {
 
 export default function SaleHistoryRow({
   sale,
-  currency = "$",
   onEdit,
   onDelete,
   disabled = false,
 }: SaleHistoryRowProps) {
+  const { formatStoredAmount } = useCurrencySettings();
+
   return (
     <XStack
       style={{
@@ -52,8 +53,7 @@ export default function SaleHistoryRow({
         <Paragraph
           style={{ color: "#0f172a", fontWeight: "800", fontSize: 16 }}
         >
-          {currency}
-          {sale.amount.toFixed(2)}
+          {formatStoredAmount(sale.amount)}
         </Paragraph>
         <Paragraph style={{ color: "#64748b", fontSize: 12 }}>
           {formatDateTime(sale.createdAt)}
