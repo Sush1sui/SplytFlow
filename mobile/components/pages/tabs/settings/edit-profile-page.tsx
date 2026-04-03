@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Input, Paragraph, Spinner, XStack, YStack } from "tamagui";
 import { useAuthState, useAuthActions } from "@/lib/context/auth-context";
+import useToast from "@/lib/context/toast-context";
 import useTabResponsive from "../shared/use-tab-responsive";
 import SettingsPageHeader from "./settings-page-header";
 
@@ -14,6 +15,7 @@ export default function EditProfilePage() {
   const { font, space } = useTabResponsive();
   const { user } = useAuthState();
   const { updateProfile } = useAuthActions();
+  const { showToast } = useToast();
 
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
@@ -26,30 +28,35 @@ export default function EditProfilePage() {
     const trimmedEmail = email.trim();
 
     if (!trimmedFirst || !trimmedLast) {
-      Alert.alert("Validation Error", "First and last name are required.");
+      showToast({
+        message: "First and last name are required.",
+        type: "warning",
+      });
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      Alert.alert("Validation Error", "Please enter a valid email address.");
+      showToast({
+        message: "Please enter a valid email address.",
+        type: "warning",
+      });
       return;
     }
 
     setSaving(true);
     try {
       await updateProfile(trimmedFirst, trimmedLast, trimmedEmail);
-      Alert.alert("Success", "Profile updated successfully.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      showToast({ message: "Profile updated successfully.", type: "success" });
+      router.back();
     } catch (error: any) {
       const message =
         error?.body?.error ?? error?.message ?? "Failed to update profile.";
-      Alert.alert("Error", message);
+      showToast({ message, type: "danger" });
     } finally {
       setSaving(false);
     }
-  }, [firstName, lastName, email, updateProfile, router]);
+  }, [firstName, lastName, email, updateProfile, router, showToast]);
 
   return (
     <YStack

@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Input, Paragraph, Spinner, YStack } from "tamagui";
 import { useAuthActions } from "@/lib/context/auth-context";
+import useToast from "@/lib/context/toast-context";
 import useTabResponsive from "../shared/use-tab-responsive";
 import SettingsPageHeader from "./settings-page-header";
 
@@ -13,6 +14,7 @@ export default function ChangePasswordPage() {
   const insets = useSafeAreaInsets();
   const { font, space } = useTabResponsive();
   const { updatePassword } = useAuthActions();
+  const { showToast } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -25,32 +27,41 @@ export default function ChangePasswordPage() {
 
   const handleUpdate = useCallback(async () => {
     if (!currentPassword) {
-      Alert.alert("Validation Error", "Please enter your current password.");
+      showToast({
+        message: "Please enter your current password.",
+        type: "warning",
+      });
       return;
     }
     if (!newPassword) {
-      Alert.alert("Validation Error", "Please enter a new password.");
+      showToast({ message: "Please enter a new password.", type: "warning" });
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert("Validation Error", "New passwords do not match.");
+      showToast({ message: "New passwords do not match.", type: "warning" });
       return;
     }
 
     setSaving(true);
     try {
       await updatePassword(currentPassword, newPassword, confirmPassword);
-      Alert.alert("Success", "Password updated successfully.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      showToast({ message: "Password updated successfully.", type: "success" });
+      router.back();
     } catch (error: any) {
       const message =
         error?.body?.error ?? error?.message ?? "Failed to update password.";
-      Alert.alert("Error", message);
+      showToast({ message, type: "danger" });
     } finally {
       setSaving(false);
     }
-  }, [currentPassword, newPassword, confirmPassword, updatePassword, router]);
+  }, [
+    currentPassword,
+    newPassword,
+    confirmPassword,
+    updatePassword,
+    router,
+    showToast,
+  ]);
 
   return (
     <YStack

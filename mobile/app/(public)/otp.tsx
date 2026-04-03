@@ -1,6 +1,8 @@
 import { useAuthActions } from "@/lib/context/auth-context";
 import useToast from "@/lib/context/toast-context";
 import { SignUpParams } from "@/types/auth.types";
+import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import useAlertDialog from "@/components/shared/use-alert-dialog";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -27,6 +29,7 @@ const formatCountdown = (seconds: number) => {
 export default function Otp() {
   const { verifyOTP, OTP_signup } = useAuthActions();
   const { showToast } = useToast();
+  const { alertDialogProps, showOk } = useAlertDialog();
   const {
     email,
     firstName,
@@ -81,10 +84,10 @@ export default function Otp() {
           return;
         }
 
-        showToast({
-          message: "A new OTP was sent to your email.",
-          type: "success",
-          closable: true,
+        showOk({
+          title: "New code sent",
+          message: "A new 6-digit code was sent to your email.",
+          okText: "Got it",
         });
 
         setResendCountdown(RESEND_COOLDOWN_SECONDS);
@@ -300,6 +303,8 @@ export default function Otp() {
           </YStack>
         </YStack>
       </ScrollView>
+
+      <AlertDialogModal {...alertDialogProps} />
     </KeyboardAvoidingView>
   );
 }

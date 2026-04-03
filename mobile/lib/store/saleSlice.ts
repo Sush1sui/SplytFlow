@@ -155,14 +155,6 @@ export const addSale = createAsyncThunk(
   async ({ userId, amount, localDate, localTime }: AddSalePayload) => {
     const timeZone = getLocalTimeZone();
 
-    console.log("Adding sale with payload:", {
-      userId,
-      amount,
-      localDate,
-      localTime,
-      timeZone,
-    });
-
     const result = await apiFetcher<SaleRow>(
       `${API_BASE_URL}${API_ENDPOINTS.SALE.CREATE}`,
       {

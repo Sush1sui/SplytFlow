@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { SaleRow } from "@/types/sale.types";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -23,6 +22,8 @@ import {
   RANGE_PRESET_MAPPING,
 } from "@/constants/sales";
 import useTabResponsive from "../shared/use-tab-responsive";
+import useToast from "@/lib/context/toast-context";
+import useAlertDialog from "@/components/shared/use-alert-dialog";
 
 const CACHE_TTL = 60_000;
 
@@ -35,6 +36,8 @@ export function useSalesScreen() {
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
   const { isNarrow, font, space } = useTabResponsive();
+  const { showToast } = useToast();
+  const { alertDialogProps, showConfirm } = useAlertDialog();
 
   const [selectedRange, setSelectedRange] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -56,7 +59,9 @@ export function useSalesScreen() {
 
   // Keep a ref to the latest sale state so callbacks don't need it as a dep
   const saleStateRef = useRef(saleState);
-  useEffect(() => { saleStateRef.current = saleState; }, [saleState]);
+  useEffect(() => {
+    saleStateRef.current = saleState;
+  }, [saleState]);
 
   // ─── Data fetching ────────────────────────────────────────────────────────
 
@@ -140,50 +145,63 @@ export function useSalesScreen() {
         dispatch(invalidateSalesCache());
         handleCloseModal();
       } catch {
-        Alert.alert("Could not save sale", "Please try again.");
+        showToast({
+          message: "Error saving sale. Please try again.",
+          type: "danger",
+        });
       } finally {
         setMutating(false);
       }
     },
-    [activeSale, dispatch, handleCloseModal, modalMode, user?.id],
+    [activeSale, dispatch, handleCloseModal, modalMode, showToast, user?.id],
   );
 
   const handleDeleteSale = useCallback(
     (sale: SaleRow) => {
-      if (!user?.id) return;
-      Alert.alert("Delete sale record?", "This action cannot be undone.", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setMutating(true);
-            try {
-              await dispatch(
-                deleteSale({ id: sale.id, userId: user.id, amount: sale.amount }),
-              ).unwrap();
-              await Promise.all([
-                dispatch(fetchSales(user.id)).unwrap(),
-                dispatch(fetchSalesHistory(user.id)).unwrap(),
-              ]);
-              dispatch(invalidateSalesCache());
-            } catch {
-              Alert.alert("Could not delete sale", "Please try again.");
-            } finally {
-              setMutating(false);
-            }
-          },
+      showConfirm({
+        title: "Delete sale record?",
+        message: "This action cannot be undone.",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+        confirmTone: "danger",
+        onConfirm: async () => {
+          if (!user?.id) return;
+
+          setMutating(true);
+          try {
+            await dispatch(
+              deleteSale({
+                id: sale.id,
+                userId: user.id,
+                amount: sale.amount,
+              }),
+            ).unwrap();
+            await Promise.all([
+              dispatch(fetchSales(user.id)).unwrap(),
+              dispatch(fetchSalesHistory(user.id)).unwrap(),
+            ]);
+            dispatch(invalidateSalesCache());
+          } catch {
+            showToast({
+              message: "Could not delete sale. Please try again.",
+              type: "danger",
+            });
+          } finally {
+            setMutating(false);
+          }
         },
-      ]);
+      });
     },
-    [dispatch, user?.id],
+    [dispatch, showConfirm, showToast, user?.id],
   );
 
   // ─── Derived values ───────────────────────────────────────────────────────
 
   const activeSplit = useMemo(
     () =>
-      splitState.splitGroups.find((g) => g.id === splitState.activeSplitGroupId),
+      splitState.splitGroups.find(
+        (g) => g.id === splitState.activeSplitGroupId,
+      ),
     [splitState.splitGroups, splitState.activeSplitGroupId],
   );
 
@@ -221,7 +239,10 @@ export function useSalesScreen() {
       value: total > 0 ? (s.value / total) * splitPct : 0,
     }));
     return {
-      segments: [{ label: "Net Sales", value: netPct, color: "#10b981" }, ...normalized],
+      segments: [
+        { label: "Net Sales", value: netPct, color: "#10b981" },
+        ...normalized,
+      ],
       netSalesPercentage: netPct,
     };
   }, [activeSplit, grossSales, netSales]);
@@ -247,6 +268,7 @@ export function useSalesScreen() {
     historyRows,
     historyLoading,
     handleDeleteSale,
+    alertDialogProps,
     // analytics
     isLoading,
     grossSales,

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { Paragraph, YStack } from "tamagui";
 import { useAuthState } from "@/lib/context/auth-context";
+import useToast from "@/lib/context/toast-context";
 import { apiFetcher } from "@/lib/api";
 import { formatDateOnly, getLocalTimeZone } from "@/lib/utils/sale";
 import { SaleRow } from "@/types/sale.types";
@@ -14,12 +15,16 @@ import DatePickerRow from "./date-picker-row";
 import StatsRow from "./stats-row";
 import LoadingRows from "./loading-rows";
 import PickerModal from "./picker-modal";
+import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import useAlertDialog from "@/components/shared/use-alert-dialog";
 import SaleHistoryRow from "../sale-history-row";
 import SaleRecordModal from "../sale-record-modal";
 
 export default function SaleHistoryPage() {
   const { user } = useAuthState();
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
+  const { alertDialogProps, showConfirm } = useAlertDialog();
   const today = new Date();
 
   const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
@@ -127,38 +132,48 @@ export default function SaleHistoryPage() {
       setModalVisible(false);
       setEditingSale(null);
     } catch {
-      Alert.alert("Could not update sale", "Please try again.");
+      showToast({
+        message: "Could not update sale. Please try again.",
+        type: "danger",
+      });
     } finally {
       setMutating(false);
     }
   };
 
   const handleDeleteSale = (sale: SaleRow) => {
-    if (!user?.id) return;
+    showConfirm({
+      title: "Delete sale record?",
+      message: "This action cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        if (!user?.id) return;
 
-    Alert.alert("Delete sale record?", "This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setMutating(true);
-          try {
-            await dispatch(
-              deleteSale({ id: sale.id, userId: user.id, amount: sale.amount }),
-            ).unwrap();
-            await Promise.all([
-              loadHistory(),
-              dispatch(fetchSales(user.id)).unwrap(),
-            ]);
-          } catch {
-            Alert.alert("Could not delete sale", "Please try again.");
-          } finally {
-            setMutating(false);
-          }
-        },
+        setMutating(true);
+        try {
+          await dispatch(
+            deleteSale({
+              id: sale.id,
+              userId: user.id,
+              amount: sale.amount,
+            }),
+          ).unwrap();
+          await Promise.all([
+            loadHistory(),
+            dispatch(fetchSales(user.id)).unwrap(),
+          ]);
+        } catch {
+          showToast({
+            message: "Could not delete sale. Please try again.",
+            type: "danger",
+          });
+        } finally {
+          setMutating(false);
+        }
       },
-    ]);
+    });
   };
 
   return (
@@ -219,6 +234,8 @@ export default function SaleHistoryPage() {
         onSubmit={handleSubmitEdit}
         pending={mutating}
       />
+
+      <AlertDialogModal {...alertDialogProps} />
     </YStack>
   );
 }

@@ -1,8 +1,9 @@
 import React from "react";
-import { Alert, Linking, ScrollView } from "react-native";
+import { Linking, ScrollView } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
+import useToast from "@/lib/context/toast-context";
 import useTabResponsive from "../shared/use-tab-responsive";
 import SettingsPageHeader from "./settings-page-header";
 
@@ -27,20 +28,30 @@ const faqs = [
 export default function FaqsSupportPage() {
   const insets = useSafeAreaInsets();
   const { font, space } = useTabResponsive();
+  const { showToast } = useToast();
 
   const handleContactSupport = async () => {
     const mailtoUrl = "mailto:support@splytflow.com";
-    const canOpen = await Linking.canOpenURL(mailtoUrl);
+    try {
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
 
-    if (!canOpen) {
-      Alert.alert(
-        "Unable to open email",
-        "Please email us at support@splytflow.com.",
-      );
-      return;
+      if (!canOpen) {
+        showToast({
+          message:
+            "Could not open your email app. Please email support@splytflow.com.",
+          type: "warning",
+        });
+        return;
+      }
+
+      await Linking.openURL(mailtoUrl);
+    } catch {
+      showToast({
+        message:
+          "Could not open your email app. Please email support@splytflow.com.",
+        type: "danger",
+      });
     }
-
-    await Linking.openURL(mailtoUrl);
   };
 
   return (

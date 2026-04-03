@@ -5,7 +5,11 @@ import { useSalesScreen } from "./use-sales-screen";
 import SalesAnalyticsSection from "./sales-analytics-section";
 import SalesHistorySection from "./sales-history-section";
 import SaleRecordModal from "./sale-record-modal";
-import { screenContainerStyle, scrollContentStyle } from "./sales-screen.styles";
+import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import {
+  screenContainerStyle,
+  scrollContentStyle,
+} from "./sales-screen.styles";
 
 export default function SalesScreen() {
   const {
@@ -25,6 +29,7 @@ export default function SalesScreen() {
     historyRows,
     historyLoading,
     handleDeleteSale,
+    alertDialogProps,
     isLoading,
     grossSales,
     netSales,
@@ -90,7 +95,8 @@ export default function SalesScreen() {
         onSubmit={handleSubmitSale}
         pending={mutating}
       />
+
+      <AlertDialogModal {...alertDialogProps} />
     </YStack>
   );
 }
-

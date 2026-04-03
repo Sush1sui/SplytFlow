@@ -8,6 +8,8 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { YStack } from "tamagui";
 import SignupForm from "@/components/pages/auth/signup/signup-form";
+import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import useAlertDialog from "@/components/shared/use-alert-dialog";
 import { useAuthActions } from "@/lib/context/auth-context";
 import useToast from "@/lib/context/toast-context";
 import { router } from "expo-router";
@@ -15,6 +17,7 @@ import { router } from "expo-router";
 export default function SignUp() {
   const { OTP_signup } = useAuthActions();
   const { showToast } = useToast();
+  const { alertDialogProps, showOk } = useAlertDialog();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -57,15 +60,22 @@ export default function SignUp() {
         return;
       }
 
-      router.push({
-        pathname: "/(public)/otp",
-        params: {
-          email,
-          firstName,
-          lastName,
-          password,
-          confirmPassword,
-          purpose: "signup",
+      showOk({
+        title: "Check your email",
+        message: "We sent your 6-digit code. Tap Continue to verify.",
+        okText: "Continue",
+        onOk: () => {
+          router.push({
+            pathname: "/(public)/otp",
+            params: {
+              email,
+              firstName,
+              lastName,
+              password,
+              confirmPassword,
+              purpose: "signup",
+            },
+          });
         },
       });
     } catch (error) {
@@ -109,6 +119,8 @@ export default function SignUp() {
           </Animated.View>
         </YStack>
       </ScrollView>
+
+      <AlertDialogModal {...alertDialogProps} />
     </KeyboardAvoidingView>
   );
 }
