@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView } from "react-native";
 import { Paragraph, YStack } from "tamagui";
 import { useAuthState } from "@/lib/context/auth-context";
@@ -35,10 +35,15 @@ export default function SaleHistoryPage() {
   const [pickerType, setPickerType] = useState<"month" | "year" | null>(null);
   const [editingSale, setEditingSale] = useState<SaleRow | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const historyRequestRef = useRef(0);
 
   const loadHistory = React.useCallback(async () => {
+    const requestId = ++historyRequestRef.current;
+
     if (!user?.id) {
-      setRows([]);
+      if (requestId === historyRequestRef.current) {
+        setRows([]);
+      }
       return;
     }
 
@@ -63,16 +68,26 @@ export default function SaleHistoryPage() {
         `${API_BASE_URL}${API_ENDPOINTS.SALE.RANGE}?${query.toString()}`,
       );
 
+      if (requestId !== historyRequestRef.current) {
+        return;
+      }
+
       setRows(
         [...data].sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         ),
       );
-    } catch (error) {
+    } catch {
+      if (requestId !== historyRequestRef.current) {
+        return;
+      }
+
       setRows([]);
     } finally {
-      setLoading(false);
+      if (requestId === historyRequestRef.current) {
+        setLoading(false);
+      }
     }
   }, [selectedMonth, selectedYear, user?.id]);
 

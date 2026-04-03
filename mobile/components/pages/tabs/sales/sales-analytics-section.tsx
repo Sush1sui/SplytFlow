@@ -1,15 +1,27 @@
 import React, { Dispatch, SetStateAction } from "react";
-import { Paragraph, XStack } from "tamagui";
+import { Button, Paragraph, XStack } from "tamagui";
 import { ranges } from "@/constants/sales";
 import AnalyticsFilterBadge from "./analytics-filter-badge";
-import GrossNetCard from "./gross-net-card";
-import GrossNetCardSkeleton from "./gross-net-card-skeleton";
 import NetSplitsDonutChart from "./net-splits-donut-chart";
 import NetSplitsDonutChartSkeleton from "./net-splits-donut-chart-skeleton";
+import WeeklyInsightsPanel from "./weekly-insights-panel";
+import WeeklyInsightsPanelSkeleton from "./weekly-insights-panel-skeleton";
 
 type DonutData = {
   segments: { label: string; value: number; color: string }[];
   netSalesPercentage: number;
+};
+
+type RangeInsights = {
+  rangeLabel: string;
+  comparisonLabel: string;
+  grossSales: number;
+  netSales: number;
+  grossChange: number;
+  netChange: number;
+  totalSplitPct: number;
+  anomalyFlags: string[];
+  whatChangedText: string;
 };
 
 type SalesAnalyticsSectionProps = {
@@ -19,12 +31,10 @@ type SalesAnalyticsSectionProps = {
   selectedRange: number;
   setSelectedRange: Dispatch<SetStateAction<number>>;
   isLoading: boolean;
-  grossSales: number;
-  netSales: number;
-  grossChange: number | null;
-  netChange: number | null;
-  comparisonLabel: string;
+  exportingCsv: boolean;
+  onExportCsv: () => void;
   donutData: DonutData;
+  rangeInsights: RangeInsights;
 };
 
 function SalesAnalyticsSection({
@@ -34,12 +44,10 @@ function SalesAnalyticsSection({
   selectedRange,
   setSelectedRange,
   isLoading,
-  grossSales,
-  netSales,
-  grossChange,
-  netChange,
-  comparisonLabel,
+  exportingCsv,
+  onExportCsv,
   donutData,
+  rangeInsights,
 }: SalesAnalyticsSectionProps) {
   return (
     <>
@@ -66,20 +74,43 @@ function SalesAnalyticsSection({
         ))}
       </XStack>
 
+      <XStack style={{ marginTop: space(12), justifyContent: "flex-end" }}>
+        <Button
+          disabled={isLoading || exportingCsv}
+          onPress={onExportCsv}
+          style={{
+            borderRadius: 10,
+            height: 36,
+            paddingHorizontal: 14,
+            backgroundColor: "#dfe4ff",
+            borderColor: "#dfe4ff",
+            opacity: isLoading || exportingCsv ? 0.65 : 1,
+          }}
+        >
+          <Paragraph style={{ color: "#4f46e5", fontWeight: "800" }}>
+            {exportingCsv ? "Downloading..." : "Download CSV"}
+          </Paragraph>
+        </Button>
+      </XStack>
+
       {isLoading ? (
         <>
-          <GrossNetCardSkeleton isNarrow={isNarrow} />
+          <WeeklyInsightsPanelSkeleton isNarrow={isNarrow} />
           <NetSplitsDonutChartSkeleton />
         </>
       ) : (
         <>
-          <GrossNetCard
+          <WeeklyInsightsPanel
             isNarrow={isNarrow}
-            grossSales={grossSales}
-            netSales={netSales}
-            grossChange={grossChange ?? 0}
-            netChange={netChange ?? 0}
-            comparisonLabel={comparisonLabel}
+            rangeLabel={rangeInsights.rangeLabel}
+            comparisonLabel={rangeInsights.comparisonLabel}
+            grossSales={rangeInsights.grossSales}
+            netSales={rangeInsights.netSales}
+            grossChange={rangeInsights.grossChange}
+            netChange={rangeInsights.netChange}
+            totalSplitPct={rangeInsights.totalSplitPct}
+            anomalyFlags={rangeInsights.anomalyFlags}
+            whatChangedText={rangeInsights.whatChangedText}
           />
           <NetSplitsDonutChart
             segments={donutData.segments}

@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import * as SecureStore from "expo-secure-store";
-import { ApiError, apiFetcher } from "../api";
+import { apiFetcher } from "../api";
 import type {
   SplitDeletePayload,
   SplitGroupDeletePayload,
@@ -16,7 +16,7 @@ import type {
 } from "@/types/split.types";
 import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
 
-const ACTIVE_SPLIT_GROUP_KEY = "active_split_group_id";
+export const ACTIVE_SPLIT_GROUP_KEY = "active_split_group_id";
 
 const initialState: SplitState = {
   splitGroups: [],
@@ -35,6 +35,28 @@ function removeSplitById(
     ...group,
     splits: group.splits.filter((split) => split.id !== splitId),
   }));
+}
+
+function pickDefaultSplitGroupId(
+  splitGroups: SplitGroupWithSplits[],
+): string | null {
+  if (splitGroups.length === 0) return null;
+
+  // Use oldest created group as deterministic fallback across devices.
+  const sortedGroups = [...splitGroups].sort((a, b) => {
+    const left = Date.parse(a.createdAt);
+    const right = Date.parse(b.createdAt);
+
+    if (Number.isNaN(left) && Number.isNaN(right)) {
+      return a.id.localeCompare(b.id);
+    }
+    if (Number.isNaN(left)) return 1;
+    if (Number.isNaN(right)) return -1;
+
+    return left - right;
+  });
+
+  return sortedGroups[0]?.id ?? null;
 }
 
 export const hydrateActiveSplitGroup = createAsyncThunk(
@@ -185,7 +207,7 @@ const splitSlice = createSlice({
         );
 
         if (!activeStillExists) {
-          state.activeSplitGroupId = state.splitGroups[0].id;
+          state.activeSplitGroupId = pickDefaultSplitGroupId(state.splitGroups);
         }
       })
       .addCase(fetchSplitGroupsWithSplits.rejected, (state, action) => {
@@ -199,6 +221,11 @@ const splitSlice = createSlice({
       .addCase(createSplitGroup.fulfilled, (state, action) => {
         state.createGroupPending = false;
         state.splitGroups.push({ ...action.payload, splits: [] });
+
+        // If this is the first group created, make it active immediately.
+        if (!state.activeSplitGroupId) {
+          state.activeSplitGroupId = action.payload.id;
+        }
       })
       .addCase(createSplitGroup.rejected, (state, action) => {
         state.createGroupPending = false;
@@ -220,7 +247,7 @@ const splitSlice = createSlice({
         );
 
         if (state.activeSplitGroupId === action.payload) {
-          state.activeSplitGroupId = state.splitGroups[0]?.id ?? null;
+          state.activeSplitGroupId = pickDefaultSplitGroupId(state.splitGroups);
         }
       })
       .addCase(createSplit.fulfilled, (state, action) => {

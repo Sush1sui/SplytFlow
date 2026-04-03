@@ -10,11 +10,14 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { YStack } from "tamagui";
 import useToast from "@/lib/context/toast-context";
 import SigninForm from "@/components/pages/auth/signin/signin-form";
+import AlertDialogModal from "@/components/shared/alert-dialog-modal";
+import useAlertDialog from "@/components/shared/use-alert-dialog";
 import useAuthContext from "@/lib/context/auth-context";
 
 export default function SignIn() {
   const { login } = useAuthContext();
   const { showToast } = useToast();
+  const { alertDialogProps, showOk } = useAlertDialog();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -58,10 +61,10 @@ export default function SignIn() {
       setLoading(false);
     } catch (error) {
       console.error("Error during sign-in:", error);
-      showToast({
+      showOk({
+        title: "Sign-in failed",
         message: "An error occurred during sign-in. Please try again.",
-        type: "danger",
-        closable: true,
+        okText: "Okay",
       });
       setLoading(false);
     }
@@ -99,6 +102,8 @@ export default function SignIn() {
           </Animated.View>
         </YStack>
       </ScrollView>
+
+      <AlertDialogModal {...alertDialogProps} />
     </KeyboardAvoidingView>
   );
 }

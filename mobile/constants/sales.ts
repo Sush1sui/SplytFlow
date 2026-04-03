@@ -103,3 +103,16 @@ export const PRESET_TO_KEY: Record<SalesRangePreset, keyof SalesTotals> = {
   "365d": "last365Days",
   prev365d: "prior365Days",
 };
+
+export const SNAPSHOT_COLORS = {
+  title: "#0f172a",
+  subtle: "#475569",
+  label: "#64748b",
+  positive: "#16a34a",
+  negative: "#dc2626",
+  warning: "#d97706",
+  money: "#0f172a",
+  percent: "#2563eb",
+  grossToken: "#334155",
+  netToken: "#4f46e5",
+};

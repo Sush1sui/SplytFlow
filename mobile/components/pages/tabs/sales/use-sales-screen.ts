@@ -12,9 +12,16 @@ import {
   updateSale,
 } from "@/lib/store/saleSlice";
 import { fetchSplitGroupsWithSplits } from "@/lib/store/splitSlice";
-import { computeNetSale, computePercentChange } from "@/lib/utils/sale";
-import { useAuthState } from "@/lib/context/auth-context";
 import {
+  computeNetSale,
+  computePercentChange,
+  getSalesRangeQueryByPreset,
+} from "@/lib/utils/sale";
+import { useAuthState } from "@/lib/context/auth-context";
+import { ApiError, apiFetcher } from "@/lib/api";
+import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
+import {
+  ranges,
   RANGE_SALES_KEYS,
   COMPARISON_SALES_KEYS,
   COMPARISON_LABELS,
@@ -24,11 +31,32 @@ import {
 import useTabResponsive from "../shared/use-tab-responsive";
 import useToast from "@/lib/context/toast-context";
 import useAlertDialog from "@/components/shared/use-alert-dialog";
+import { buildSalesCsv } from "@/lib/utils/sales-csv";
+import { saveSalesCsvToDevice } from "@/lib/utils/sales-csv-file";
 
 const CACHE_TTL = 60_000;
 
 function isStale(lastFetched: number | null): boolean {
   return lastFetched === null || Date.now() - lastFetched > CACHE_TTL;
+}
+
+function formatCurrency(value: number): string {
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function toFileNameToken(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildCsvFileName(rangeLabel: string): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `splytflow-sales-${toFileNameToken(rangeLabel)}-${stamp}.csv`;
 }
 
 export function useSalesScreen() {
@@ -45,6 +73,7 @@ export function useSalesScreen() {
   const [activeSale, setActiveSale] = useState<SaleRow | null>(null);
   const [mutating, setMutating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const saleState = useAppSelector((state) => state.sale);
   const splitState = useAppSelector((state) => state.split);
@@ -213,6 +242,75 @@ export function useSalesScreen() {
   const currentKey = RANGE_SALES_KEYS[selectedRange] ?? "today";
   const comparisonKey = COMPARISON_SALES_KEYS[selectedRange] ?? "oneDayAgo";
   const comparisonLabel = COMPARISON_LABELS[selectedRange] ?? "vs prior period";
+  const selectedRangeLabel = ranges[selectedRange] ?? "Selected Range";
+  const comparisonPeriodLabel = comparisonLabel.startsWith("vs ")
+    ? comparisonLabel.slice(3)
+    : comparisonLabel;
+
+  const handleExportCsv = useCallback(async () => {
+    if (!user?.id || exportingCsv) return;
+
+    setExportingCsv(true);
+
+    try {
+      const { startLocalDate, endLocalDate, timeZone } =
+        getSalesRangeQueryByPreset(selectedPreset);
+
+      const query = new URLSearchParams({
+        userId: user.id,
+        startLocalDate,
+        endLocalDate,
+        timeZone,
+      });
+
+      let rows: SaleRow[] = [];
+
+      try {
+        rows = await apiFetcher<SaleRow[]>(
+          `${API_BASE_URL}${API_ENDPOINTS.SALE.RANGE}?${query.toString()}`,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          rows = [];
+        } else {
+          throw error;
+        }
+      }
+
+      const csv = buildSalesCsv({
+        rows,
+        rangeLabel: selectedRangeLabel,
+        splitPercentage: totalSplitPct,
+        exportedAt: new Date(),
+      });
+
+      const fileName = buildCsvFileName(selectedRangeLabel);
+
+      const savedFile = await saveSalesCsvToDevice(fileName, csv);
+
+      showToast({
+        message: `CSV saved to ${savedFile.savedPathLabel}.`,
+        type: "success",
+      });
+
+      // Keep lint happy if we later decide to surface this in UI.
+      void savedFile.fileUri;
+    } catch {
+      showToast({
+        message: "Could not export CSV. Please try again.",
+        type: "danger",
+      });
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [
+    exportingCsv,
+    selectedPreset,
+    selectedRangeLabel,
+    showToast,
+    totalSplitPct,
+    user?.id,
+  ]);
 
   const grossSales = saleState.sales[currentKey] ?? 0;
   const grossPrior = saleState.sales[comparisonKey] ?? 0;
@@ -222,6 +320,81 @@ export function useSalesScreen() {
   const netChange = computePercentChange(netSales, netPrior);
 
   const isLoading = saleState.rangeStatus[selectedPreset] === "loading";
+
+  const rangeGrossSales = grossSales;
+  const rangeGrossPrior = grossPrior;
+  const rangeNetSales = netSales;
+  const rangeNetPrior = netPrior;
+  const rangeGrossChange = grossChange;
+  const rangeNetChange = netChange;
+  const rangeGrossDelta = rangeGrossSales - rangeGrossPrior;
+  const rangeNetDelta = rangeNetSales - rangeNetPrior;
+  const rangeRetentionPct =
+    rangeGrossSales > 0 ? (rangeNetSales / rangeGrossSales) * 100 : 100;
+
+  const anomalyFlags = useMemo(() => {
+    const flags: string[] = [];
+
+    if (rangeGrossPrior > 0 && rangeGrossChange <= -25) {
+      flags.push(
+        `Gross sales dropped sharply compared with ${comparisonPeriodLabel}.`,
+      );
+    }
+
+    if (rangeGrossPrior > 0 && rangeGrossChange >= 35) {
+      flags.push(
+        `Gross sales jumped sharply compared with ${comparisonPeriodLabel}.`,
+      );
+    }
+
+    if (totalSplitPct >= 55) {
+      flags.push(
+        `Your active split deductions are high at ${Math.round(totalSplitPct)}%.`,
+      );
+    }
+
+    if (rangeGrossSales > 0 && rangeRetentionPct < 45) {
+      flags.push(
+        `Only ${Math.round(rangeRetentionPct)}% of gross sales stayed as net for ${selectedRangeLabel.toLowerCase()}.`,
+      );
+    }
+
+    return flags;
+  }, [
+    comparisonPeriodLabel,
+    rangeGrossChange,
+    rangeGrossPrior,
+    rangeGrossSales,
+    rangeRetentionPct,
+    selectedRangeLabel,
+    totalSplitPct,
+  ]);
+
+  const whatChangedText = useMemo(() => {
+    if (rangeGrossSales === 0 && rangeGrossPrior === 0) {
+      return `No sales were recorded for ${selectedRangeLabel.toLowerCase()} or ${comparisonPeriodLabel}.`;
+    }
+
+    if (rangeGrossPrior === 0 && rangeGrossSales > 0) {
+      return `${selectedRangeLabel} recorded ${formatCurrency(rangeGrossSales)} in gross sales and ${formatCurrency(rangeNetSales)} in net sales, versus no sales in ${comparisonPeriodLabel}.`;
+    }
+
+    const grossDirection = rangeGrossDelta >= 0 ? "increased" : "decreased";
+    const netDirection = rangeNetDelta >= 0 ? "rose" : "fell";
+    const grossDeltaAbs = Math.abs(rangeGrossDelta);
+    const netDeltaAbs = Math.abs(rangeNetDelta);
+
+    return `${selectedRangeLabel} gross ${grossDirection} by ${formatCurrency(grossDeltaAbs)} compared with ${comparisonPeriodLabel}. With ${Math.round(totalSplitPct * 10) / 10}% total splits, net ${netDirection} by ${formatCurrency(netDeltaAbs)}.`;
+  }, [
+    comparisonPeriodLabel,
+    rangeGrossDelta,
+    rangeGrossPrior,
+    rangeGrossSales,
+    rangeNetDelta,
+    rangeNetSales,
+    selectedRangeLabel,
+    totalSplitPct,
+  ]);
 
   const donutData = useMemo(() => {
     const segments = (activeSplit?.splits ?? [])
@@ -256,6 +429,8 @@ export function useSalesScreen() {
     // range selection
     selectedRange,
     setSelectedRange,
+    exportingCsv,
+    handleExportCsv,
     // modal
     modalVisible,
     modalMode,
@@ -277,6 +452,17 @@ export function useSalesScreen() {
     netChange,
     comparisonLabel,
     donutData,
+    rangeInsights: {
+      rangeLabel: selectedRangeLabel,
+      comparisonLabel,
+      grossSales: rangeGrossSales,
+      netSales: rangeNetSales,
+      grossChange: rangeGrossChange,
+      netChange: rangeNetChange,
+      totalSplitPct,
+      anomalyFlags,
+      whatChangedText,
+    },
     // pull-to-refresh
     refreshing,
     handleRefresh,

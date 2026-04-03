@@ -19,6 +19,8 @@ export default function SalesScreen() {
     space,
     selectedRange,
     setSelectedRange,
+    exportingCsv,
+    handleExportCsv,
     modalVisible,
     modalMode,
     activeSale,
@@ -31,12 +33,8 @@ export default function SalesScreen() {
     handleDeleteSale,
     alertDialogProps,
     isLoading,
-    grossSales,
-    netSales,
-    grossChange,
-    netChange,
-    comparisonLabel,
     donutData,
+    rangeInsights,
     refreshing,
     handleRefresh,
   } = useSalesScreen();
@@ -65,12 +63,10 @@ export default function SalesScreen() {
           selectedRange={selectedRange}
           setSelectedRange={setSelectedRange}
           isLoading={isLoading}
-          grossSales={grossSales}
-          netSales={netSales}
-          grossChange={grossChange}
-          netChange={netChange}
-          comparisonLabel={comparisonLabel}
+          exportingCsv={exportingCsv}
+          onExportCsv={handleExportCsv}
           donutData={donutData}
+          rangeInsights={rangeInsights}
         />
 
         <SalesHistorySection
