@@ -31,6 +31,8 @@ function getLocalDayUtcBounds(localDate: string, timeZone: string) {
 async function upsert(
   userId: string,
   amount: number,
+  originalAmount: number,
+  currencyCode: string,
   timeZone: string,
   localDate?: string,
   localTime?: string,
@@ -48,7 +50,7 @@ async function upsert(
 
     // amount is treated as a delta.
     if (Math.abs(amount) <= ZERO_EPSILON) {
-      return getByUserId(userId, effectiveLocalDate, timeZone);
+      return getByUserId(userId, effectiveLocalDate, timeZone, currencyCode);
     }
 
     const { start, endExclusive } = getLocalDayUtcBounds(
@@ -62,6 +64,7 @@ async function upsert(
       .where(
         and(
           eq(sales.userId, userId),
+          eq(sales.currencyCode, currencyCode),
           gte(sales.createdAt, start),
           lt(sales.createdAt, endExclusive),
         ),
@@ -76,12 +79,19 @@ async function upsert(
           .update(sales)
           .set({
             amount: sql`${sales.amount} + ${amount}`,
+            originalAmount: sql`${sales.originalAmount} + ${originalAmount}`,
           })
           .where(and(eq(sales.id, existing.id), eq(sales.userId, userId)))
           .returning()
       : await db
           .insert(sales)
-          .values({ userId, amount, createdAt })
+          .values({
+            userId,
+            amount,
+            originalAmount,
+            currencyCode,
+            createdAt,
+          })
           .returning();
 
     const sale = result[0];
@@ -106,7 +116,13 @@ async function upsert(
   }
 }
 
-async function update(id: string, userId: string, amount: number) {
+async function update(
+  id: string,
+  userId: string,
+  amount: number,
+  originalAmount: number,
+  currencyCode: string,
+) {
   try {
     if (Math.abs(amount) <= ZERO_EPSILON) {
       await db
@@ -117,7 +133,7 @@ async function update(id: string, userId: string, amount: number) {
 
     const result = await db
       .update(sales)
-      .set({ amount })
+      .set({ amount, originalAmount, currencyCode })
       .where(and(eq(sales.id, id), eq(sales.userId, userId)))
       .returning();
 
@@ -146,20 +162,28 @@ async function getByUserId(
   userId: string,
   localDate: string,
   timeZone: string,
+  currencyCode?: string,
 ) {
   try {
     const { start, endExclusive } = getLocalDayUtcBounds(localDate, timeZone);
 
-    const result = await db
-      .select()
-      .from(sales)
-      .where(
-        and(
+    const whereClause = currencyCode
+      ? and(
+          eq(sales.userId, userId),
+          eq(sales.currencyCode, currencyCode),
+          gte(sales.createdAt, start),
+          lt(sales.createdAt, endExclusive),
+        )
+      : and(
           eq(sales.userId, userId),
           gte(sales.createdAt, start),
           lt(sales.createdAt, endExclusive),
-        ),
-      )
+        );
+
+    const result = await db
+      .select()
+      .from(sales)
+      .where(whereClause)
       .orderBy(asc(sales.createdAt))
       .limit(1);
 
@@ -179,6 +203,7 @@ async function getByUserIdWithRange(
   startLocalDate: string,
   endLocalDate: string,
   timeZone: string,
+  currencyCode?: string,
 ) {
   try {
     const start = toUtcFromLocalDateAndTimeZone(startLocalDate, timeZone);
@@ -192,16 +217,23 @@ async function getByUserIdWithRange(
       throw new Error("startLocalDate cannot be after endLocalDate");
     }
 
-    return await db
-      .select()
-      .from(sales)
-      .where(
-        and(
+    const whereClause = currencyCode
+      ? and(
+          eq(sales.userId, userId),
+          eq(sales.currencyCode, currencyCode),
+          gte(sales.createdAt, start),
+          lt(sales.createdAt, endExclusive),
+        )
+      : and(
           eq(sales.userId, userId),
           gte(sales.createdAt, start),
           lt(sales.createdAt, endExclusive),
-        ),
-      )
+        );
+
+    return await db
+      .select()
+      .from(sales)
+      .where(whereClause)
       .orderBy(asc(sales.createdAt));
   } catch (error) {
     if (getDateValidationMessage(error)) {
@@ -213,12 +245,16 @@ async function getByUserIdWithRange(
   }
 }
 
-async function getAllByUserId(userId: string) {
+async function getAllByUserId(userId: string, currencyCode?: string) {
   try {
+    const whereClause = currencyCode
+      ? and(eq(sales.userId, userId), eq(sales.currencyCode, currencyCode))
+      : eq(sales.userId, userId);
+
     return await db
       .select()
       .from(sales)
-      .where(eq(sales.userId, userId))
+      .where(whereClause)
       .orderBy(asc(sales.createdAt));
   } catch (error) {
     console.error("Error fetching sales:", error);

@@ -160,8 +160,8 @@ describe("sale endpoints", () => {
     expectValidationStatus(response.status);
   });
 
-  test("PUT /sales validates body", async () => {
-    const response = await request(app, "/sales", {
+  test("PUT /sales/:id validates body", async () => {
+    const response = await request(app, "/sales/sale-1", {
       method: "PUT",
       body: {},
     });

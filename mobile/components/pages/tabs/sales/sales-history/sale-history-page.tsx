@@ -9,6 +9,10 @@ import { SaleRow } from "@/types/sale.types";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { deleteSale, fetchSales, updateSale } from "@/lib/store/saleSlice";
 import { API_BASE_URL, API_ENDPOINTS } from "@/constants/api";
+import {
+  currencySymbol as getCurrencySymbol,
+  isSupportedCurrency,
+} from "@/constants/currency";
 import { MONTH_NAMES } from "@/constants/sales";
 import HistoryHeader from "./history-header";
 import DatePickerRow from "./date-picker-row";
@@ -26,7 +30,7 @@ export default function SaleHistoryPage() {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
   const { alertDialogProps, showConfirm } = useAlertDialog();
-  const { currencySymbol, convertDisplayToStored, convertStoredToDisplay } =
+  const { activeCurrency, currencySymbol, convertInputToStored } =
     useCurrencySettings();
   const today = new Date();
 
@@ -140,11 +144,18 @@ export default function SaleHistoryPage() {
 
     setMutating(true);
     try {
+      const inputCurrency = isSupportedCurrency(editingSale.currencyCode)
+        ? editingSale.currencyCode
+        : activeCurrency;
+      const storedAmount = await convertInputToStored(amount, inputCurrency);
+
       await dispatch(
         updateSale({
           id: editingSale.id,
           userId: user.id,
-          amount: convertDisplayToStored(amount),
+          amount: storedAmount,
+          originalAmount: amount,
+          currencyCode: inputCurrency,
         }),
       ).unwrap();
       await Promise.all([
@@ -252,12 +263,18 @@ export default function SaleHistoryPage() {
         mode="edit"
         saleCreatedAt={editingSale?.createdAt ?? null}
         initialAmount={
-          editingSale ? convertStoredToDisplay(editingSale.amount) : null
+          editingSale
+            ? (editingSale.originalAmount ?? editingSale.amount)
+            : null
         }
         onClose={handleCloseModal}
         onSubmit={handleSubmitEdit}
         pending={mutating}
-        currency={currencySymbol}
+        currency={
+          editingSale?.currencyCode
+            ? getCurrencySymbol(editingSale.currencyCode)
+            : currencySymbol
+        }
       />
 
       <AlertDialogModal {...alertDialogProps} />

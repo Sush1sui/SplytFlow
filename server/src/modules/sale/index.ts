@@ -20,9 +20,9 @@ const sales = new Elysia({ prefix: "/sales" })
     "/",
     async ({ query, set }) => {
       try {
-        const { userId } = query;
+        const { userId, currencyCode } = query;
 
-        const sales = await saleService.getAllByUserId(userId);
+        const sales = await saleService.getAllByUserId(userId, currencyCode);
 
         set.status = 200;
         return sales;
@@ -81,13 +81,15 @@ const sales = new Elysia({ prefix: "/sales" })
     "/range",
     async ({ query, set }) => {
       try {
-        const { userId, startLocalDate, endLocalDate, timeZone } = query;
+        const { userId, startLocalDate, endLocalDate, timeZone, currencyCode } =
+          query;
 
         const result = await saleService.getByUserIdWithRange(
           userId,
           startLocalDate,
           endLocalDate,
           timeZone,
+          currencyCode,
         );
 
         if (!result || result.length === 0) {
@@ -128,11 +130,21 @@ const sales = new Elysia({ prefix: "/sales" })
     "/",
     async ({ body, set }) => {
       try {
-        const { userId, amount, timeZone, localDate, localTime } = body;
+        const {
+          userId,
+          amount,
+          originalAmount,
+          currencyCode,
+          timeZone,
+          localDate,
+          localTime,
+        } = body;
 
         const sale = await saleService.upsert(
           userId,
           amount,
+          originalAmount,
+          currencyCode,
           timeZone,
           localDate,
           localTime,
@@ -175,9 +187,15 @@ const sales = new Elysia({ prefix: "/sales" })
     async ({ params, body, set }) => {
       try {
         const { id } = params;
-        const { userId, amount } = body;
+        const { userId, amount, originalAmount, currencyCode } = body;
 
-        const sale = await saleService.update(id, userId, amount);
+        const sale = await saleService.update(
+          id,
+          userId,
+          amount,
+          originalAmount,
+          currencyCode,
+        );
 
         if (!sale) {
           set.status = 404;

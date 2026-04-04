@@ -34,6 +34,7 @@ import useAlertDialog from "@/components/shared/use-alert-dialog";
 import { buildSalesCsv } from "@/lib/utils/sales-csv";
 import { saveSalesCsvToDevice } from "@/lib/utils/sales-csv-file";
 import useCurrencySettings from "@/lib/context/currency-context";
+import { isSupportedCurrency } from "@/constants/currency";
 
 const CACHE_TTL = 60_000;
 
@@ -63,7 +64,7 @@ export function useSalesScreen() {
   const {
     activeCurrency,
     convertStoredToDisplay,
-    convertDisplayToStored,
+    convertInputToStored,
     formatDisplayAmount,
     formatStoredAmount,
   } = useCurrencySettings();
@@ -157,22 +158,39 @@ export function useSalesScreen() {
   const handleSubmitSale = useCallback(
     async (amount: number, localDate?: string, localTime?: string) => {
       if (!user?.id) return;
-      const storedAmount = convertDisplayToStored(amount);
+
       setMutating(true);
       try {
         if (modalMode === "edit" && activeSale) {
+          const inputCurrency = isSupportedCurrency(activeSale.currencyCode)
+            ? activeSale.currencyCode
+            : activeCurrency;
+          const storedAmount = await convertInputToStored(
+            amount,
+            inputCurrency,
+          );
+
           await dispatch(
             updateSale({
               id: activeSale.id,
               userId: user.id,
               amount: storedAmount,
+              originalAmount: amount,
+              currencyCode: inputCurrency,
             }),
           ).unwrap();
         } else {
+          const storedAmount = await convertInputToStored(
+            amount,
+            activeCurrency,
+          );
+
           await dispatch(
             addSale({
               userId: user.id,
               amount: storedAmount,
+              originalAmount: amount,
+              currencyCode: activeCurrency,
               localDate,
               localTime,
             }),
@@ -195,7 +213,8 @@ export function useSalesScreen() {
     },
     [
       activeSale,
-      convertDisplayToStored,
+      activeCurrency,
+      convertInputToStored,
       dispatch,
       handleCloseModal,
       modalMode,

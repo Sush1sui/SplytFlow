@@ -103,6 +103,8 @@ export const sales = pgTable(
       .notNull()
       .references(() => users.id),
     amount: doublePrecision("amount").notNull(),
+    originalAmount: doublePrecision("originalAmount").notNull(),
+    currencyCode: varchar("currencyCode", { length: 3 }).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt")
       .defaultNow()
@@ -110,6 +112,10 @@ export const sales = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (table) => [
-    unique("Sale_userId_createdAt_key").on(table.userId, table.createdAt),
+    unique("Sale_userId_currencyCode_createdAt_key").on(
+      table.userId,
+      table.currencyCode,
+      table.createdAt,
+    ),
   ],
 );

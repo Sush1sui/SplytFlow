@@ -14,6 +14,12 @@ type BuildSalesCsvParams = {
   convertStoredToDisplay: (amount: number) => number;
 };
 
+type DailySaleAggregate = {
+  dateLabel: string;
+  grossStored: number;
+  sortTs: number;
+};
+
 function roundToTwo(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -86,17 +92,44 @@ export function buildSalesCsv({
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
+  const aggregatedByDate = new Map<string, DailySaleAggregate>();
+
+  normalizedRows.forEach((row) => {
+    const dateLabel = formatDate(row.createdAt);
+    const ts = new Date(row.createdAt).getTime();
+    const existing = aggregatedByDate.get(dateLabel);
+
+    if (!existing) {
+      aggregatedByDate.set(dateLabel, {
+        dateLabel,
+        grossStored: row.amount,
+        sortTs: Number.isNaN(ts) ? 0 : ts,
+      });
+      return;
+    }
+
+    existing.grossStored += row.amount;
+
+    if (!Number.isNaN(ts) && ts > existing.sortTs) {
+      existing.sortTs = ts;
+    }
+  });
+
+  const dailyRows = [...aggregatedByDate.values()].sort(
+    (a, b) => b.sortTs - a.sortTs,
+  );
+
   const roundedSplitPct = roundToTwo(splitPercentage);
-  const grossTotalStored = normalizedRows.reduce(
-    (sum, row) => sum + row.amount,
+  const grossTotalStored = dailyRows.reduce(
+    (sum, row) => sum + row.grossStored,
     0,
   );
-  const splitTotalStored = normalizedRows.reduce(
-    (sum, row) => sum + (row.amount * splitPercentage) / 100,
+  const splitTotalStored = dailyRows.reduce(
+    (sum, row) => sum + (row.grossStored * splitPercentage) / 100,
     0,
   );
-  const netTotalStored = normalizedRows.reduce(
-    (sum, row) => sum + computeNetSale(row.amount, splitPercentage),
+  const netTotalStored = dailyRows.reduce(
+    (sum, row) => sum + computeNetSale(row.grossStored, splitPercentage),
     0,
   );
 
@@ -109,7 +142,7 @@ export function buildSalesCsv({
   lines.push(toCsvLine(["SplytFlow Sales Report", "", "", "", "", "", ""]));
   lines.push(toCsvLine(["Range", rangeLabel]));
   lines.push(toCsvLine(["Exported", formatExportedAt(exportedAt)]));
-  lines.push(toCsvLine(["Records", String(normalizedRows.length)]));
+  lines.push(toCsvLine(["Records", String(dailyRows.length)]));
   lines.push(toCsvLine(["Currency", currencyCode]));
   lines.push(toCsvLine(["Applied Split", `${roundedSplitPct}%`]));
   lines.push(
@@ -135,18 +168,18 @@ export function buildSalesCsv({
     ]),
   );
 
-  normalizedRows.forEach((row, index) => {
-    const splitDeductionStored = (row.amount * splitPercentage) / 100;
-    const grossDisplay = convertStoredToDisplay(row.amount);
+  dailyRows.forEach((row, index) => {
+    const splitDeductionStored = (row.grossStored * splitPercentage) / 100;
+    const grossDisplay = convertStoredToDisplay(row.grossStored);
     const splitDeductionDisplay = convertStoredToDisplay(splitDeductionStored);
     const netDisplay = convertStoredToDisplay(
-      computeNetSale(row.amount, splitPercentage),
+      computeNetSale(row.grossStored, splitPercentage),
     );
 
     lines.push(
       toCsvLine([
         String(index + 1),
-        formatDate(row.createdAt),
+        row.dateLabel,
         formatCurrency(grossDisplay, currencyCode),
         `${roundedSplitPct}%`,
         formatCurrency(splitDeductionDisplay, currencyCode),

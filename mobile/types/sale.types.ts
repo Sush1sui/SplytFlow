@@ -25,6 +25,8 @@ export type SaleRow = {
   id: string;
   userId: string;
   amount: number;
+  originalAmount: number;
+  currencyCode: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -55,14 +57,18 @@ export type SaleState = {
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   lastFetched: number | null;
-  rangeStatus: Record<SalesRangePreset, "idle" | "loading" | "succeeded" | "failed">;
+  rangeStatus: Record<
+    SalesRangePreset,
+    "idle" | "loading" | "succeeded" | "failed"
+  >;
 };
-
 
 export type RecentLogType = {
   id: string;
   userId: string;
   amount: number;
+  originalAmount?: number;
+  currencyCode?: string;
   actionType: "create" | "update" | "delete";
   createdAt: string;
   updatedAt?: string;
@@ -71,6 +77,8 @@ export type RecentLogType = {
 export type AddSalePayload = {
   userId: string;
   amount: number;
+  originalAmount: number;
+  currencyCode: string;
   localDate?: string;
   localTime?: string;
 };
@@ -79,6 +87,8 @@ export type UpdateSalePayload = {
   id: string;
   userId: string;
   amount: number;
+  originalAmount: number;
+  currencyCode: string;
 };
 
 export type DeleteSalePayload = {

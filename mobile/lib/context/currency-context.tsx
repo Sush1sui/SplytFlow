@@ -22,6 +22,7 @@ import {
   defaultCurrencyState,
   formatAmount,
   resolveConversionRate,
+  roundToSix,
   roundToTwo,
 } from "@/lib/utils/currency-helpers";
 import { fetchConversionRatesWithFallback } from "@/lib/utils/currency-rates";
@@ -113,9 +114,36 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     (amount: number) => {
       if (!Number.isFinite(amount)) return 0;
       if (!conversionRate || conversionRate <= 0) return amount;
-      return roundToTwo(amount / conversionRate);
+      return roundToSix(amount / conversionRate);
     },
     [conversionRate],
+  );
+
+  const convertInputToStored = useCallback(
+    async (amount: number, inputCurrency: SupportedCurrencyCode) => {
+      if (!Number.isFinite(amount)) return 0;
+
+      if (!state.initialDecisionMade || inputCurrency === state.baseCurrency) {
+        return roundToSix(amount);
+      }
+
+      const rates =
+        ratesByBase[state.baseCurrency] ??
+        (await ensureRatesForBase(state.baseCurrency));
+      const rate = rates[inputCurrency];
+
+      if (!rate || !Number.isFinite(rate) || rate <= 0) {
+        throw new Error(RATES_UNAVAILABLE_ERROR);
+      }
+
+      return roundToSix(amount / rate);
+    },
+    [
+      ensureRatesForBase,
+      ratesByBase,
+      state.baseCurrency,
+      state.initialDecisionMade,
+    ],
   );
 
   const formatDisplayAmount = useCallback(
@@ -193,6 +221,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       conversionRate,
       convertStoredToDisplay,
       convertDisplayToStored,
+      convertInputToStored,
       formatStoredAmount,
       formatDisplayAmount,
       applyCurrencySelection,
@@ -202,6 +231,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       applyCurrencySelection,
       conversionRate,
       convertDisplayToStored,
+      convertInputToStored,
       convertStoredToDisplay,
       formatDisplayAmount,
       formatStoredAmount,

@@ -13,7 +13,8 @@ export default function QuickAddSale() {
   const dispatch = useAppDispatch();
   const { user } = useAuthState();
   const { showToast } = useToast();
-  const { currencySymbol, convertDisplayToStored } = useCurrencySettings();
+  const { activeCurrency, currencySymbol, convertInputToStored } =
+    useCurrencySettings();
   const amountInputLeftPadding = currencySymbol.length >= 3 ? 56 : 48;
 
   const [amountInput, setAmountInput] = useState("");
@@ -32,8 +33,15 @@ export default function QuickAddSale() {
 
     setIsSubmitting(true);
     try {
+      const storedAmount = await convertInputToStored(amount, activeCurrency);
+
       await dispatch(
-        addSale({ userId: user.id, amount: convertDisplayToStored(amount) }),
+        addSale({
+          userId: user.id,
+          amount: storedAmount,
+          originalAmount: amount,
+          currencyCode: activeCurrency,
+        }),
       ).unwrap();
       try {
         await Promise.all([

@@ -20,6 +20,10 @@ export function roundToTwo(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+export function roundToSix(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
 export function formatAmount(
   value: number,
   currencyCode: SupportedCurrencyCode,

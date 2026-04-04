@@ -1,6 +1,7 @@
 import React from "react";
 import { RefreshControl, ScrollView } from "react-native";
 import { YStack } from "tamagui";
+import { currencySymbol as getCurrencySymbol } from "@/constants/currency";
 import { useSalesScreen } from "./use-sales-screen";
 import SalesAnalyticsSection from "./sales-analytics-section";
 import SalesHistorySection from "./sales-history-section";
@@ -13,7 +14,7 @@ import {
 } from "./sales-screen.styles";
 
 export default function SalesScreen() {
-  const { currencySymbol, convertStoredToDisplay } = useCurrencySettings();
+  const { currencySymbol } = useCurrencySettings();
 
   const {
     router,
@@ -89,13 +90,15 @@ export default function SalesScreen() {
         visible={modalVisible}
         mode={modalMode}
         saleCreatedAt={activeSale?.createdAt ?? null}
-        initialAmount={
-          activeSale ? convertStoredToDisplay(activeSale.amount) : null
-        }
+        initialAmount={activeSale ? activeSale.originalAmount : null}
         onClose={handleCloseModal}
         onSubmit={handleSubmitSale}
         pending={mutating}
-        currency={currencySymbol}
+        currency={
+          activeSale?.currencyCode
+            ? getCurrencySymbol(activeSale.currencyCode)
+            : currencySymbol
+        }
       />
 
       <AlertDialogModal {...alertDialogProps} />

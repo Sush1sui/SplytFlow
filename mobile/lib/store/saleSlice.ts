@@ -152,7 +152,14 @@ export const fetchSalesHistory = createAsyncThunk(
 
 export const addSale = createAsyncThunk(
   "sales/addSale",
-  async ({ userId, amount, localDate, localTime }: AddSalePayload) => {
+  async ({
+    userId,
+    amount,
+    originalAmount,
+    currencyCode,
+    localDate,
+    localTime,
+  }: AddSalePayload) => {
     const timeZone = getLocalTimeZone();
 
     const result = await apiFetcher<SaleRow>(
@@ -163,6 +170,8 @@ export const addSale = createAsyncThunk(
         body: JSON.stringify({
           userId,
           amount,
+          originalAmount,
+          currencyCode,
           timeZone,
           localDate,
           localTime,
@@ -175,6 +184,8 @@ export const addSale = createAsyncThunk(
       id: result.id,
       userId: result.userId,
       amount,
+      originalAmount,
+      currencyCode,
       actionType: "create",
       createdAt: new Date().toISOString(),
     };
@@ -189,7 +200,13 @@ export const addSale = createAsyncThunk(
 
 export const updateSale = createAsyncThunk(
   "sales/updateSale",
-  async ({ id, userId, amount }: UpdateSalePayload) => {
+  async ({
+    id,
+    userId,
+    amount,
+    originalAmount,
+    currencyCode,
+  }: UpdateSalePayload) => {
     const result = await apiFetcher<SaleRow>(
       `${API_BASE_URL}${API_ENDPOINTS.SALE.BY_ID(id)}`,
       {
@@ -198,6 +215,8 @@ export const updateSale = createAsyncThunk(
         body: JSON.stringify({
           userId,
           amount,
+          originalAmount,
+          currencyCode,
         }),
       },
     );
@@ -206,6 +225,8 @@ export const updateSale = createAsyncThunk(
       id: result.id,
       userId: result.userId,
       amount: result.amount,
+      originalAmount: result.originalAmount,
+      currencyCode: result.currencyCode,
       actionType: "update",
       createdAt: new Date().toISOString(),
       updatedAt: result.updatedAt,

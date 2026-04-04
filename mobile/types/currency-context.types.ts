@@ -35,6 +35,10 @@ export type CurrencyContextValue = {
   conversionRate: number;
   convertStoredToDisplay: (amount: number) => number;
   convertDisplayToStored: (amount: number) => number;
+  convertInputToStored: (
+    amount: number,
+    inputCurrency: SupportedCurrencyCode,
+  ) => Promise<number>;
   formatStoredAmount: (amount: number) => string;
   formatDisplayAmount: (amount: number) => string;
   applyCurrencySelection: (

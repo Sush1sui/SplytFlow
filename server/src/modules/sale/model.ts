@@ -2,6 +2,7 @@ import { t } from "elysia";
 
 export type GetSalesQuery = {
   userId: string;
+  currencyCode?: string;
 };
 
 export type GetSalesByRangeQuery = {
@@ -9,11 +10,14 @@ export type GetSalesByRangeQuery = {
   startLocalDate: string;
   endLocalDate: string;
   timeZone: string;
+  currencyCode?: string;
 };
 
 export type CreateSaleBody = {
   userId: string;
   amount: number;
+  originalAmount: number;
+  currencyCode: string;
   timeZone: string;
   localDate?: string;
   localTime?: string;
@@ -22,6 +26,8 @@ export type CreateSaleBody = {
 export type UpdateSaleBody = {
   userId: string;
   amount: number;
+  originalAmount: number;
+  currencyCode: string;
 };
 
 export type DeleteSaleBody = {
@@ -38,16 +44,20 @@ export const saleSchema = {
   }),
   getSalesQuery: t.Object({
     userId: t.String(),
+    currencyCode: t.Optional(t.String()),
   }),
   getSalesByRangeQuery: t.Object({
     userId: t.String(),
     startLocalDate: t.String(),
     endLocalDate: t.String(),
     timeZone: t.String(),
+    currencyCode: t.Optional(t.String()),
   }),
   createSaleBody: t.Object({
     userId: t.String(),
     amount: t.Number(),
+    originalAmount: t.Number(),
+    currencyCode: t.String(),
     timeZone: t.String(),
     localDate: t.Optional(t.String()),
     localTime: t.Optional(t.String()),
@@ -55,6 +65,8 @@ export const saleSchema = {
   updateSaleBody: t.Object({
     userId: t.String(),
     amount: t.Number(),
+    originalAmount: t.Number(),
+    currencyCode: t.String(),
   }),
   deleteSaleBody: t.Object({
     userId: t.String(),

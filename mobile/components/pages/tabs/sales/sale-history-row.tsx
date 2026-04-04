@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { SaleRow } from "@/types/sale.types";
+import { currencySymbol } from "@/constants/currency";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
 import { formatDateTime } from "@/lib/utils/sale";
 import useCurrencySettings from "@/lib/context/currency-context";
@@ -18,6 +19,17 @@ export default function SaleHistoryRow({
   disabled = false,
 }: SaleHistoryRowProps) {
   const { formatStoredAmount } = useCurrencySettings();
+
+  const amountLabel =
+    Number.isFinite(sale.originalAmount) && sale.currencyCode
+      ? `${sale.originalAmount < 0 ? "-" : ""}${currencySymbol(sale.currencyCode)}${new Intl.NumberFormat(
+          undefined,
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          },
+        ).format(Math.abs(sale.originalAmount))}`
+      : formatStoredAmount(sale.amount);
 
   return (
     <XStack
@@ -53,7 +65,7 @@ export default function SaleHistoryRow({
         <Paragraph
           style={{ color: "#0f172a", fontWeight: "800", fontSize: 16 }}
         >
-          {formatStoredAmount(sale.amount)}
+          {amountLabel}
         </Paragraph>
         <Paragraph style={{ color: "#64748b", fontSize: 12 }}>
           {formatDateTime(sale.createdAt)}
