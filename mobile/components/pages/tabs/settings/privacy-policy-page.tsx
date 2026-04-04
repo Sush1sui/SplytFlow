@@ -7,20 +7,24 @@ import SettingsPageHeader from "./settings-page-header";
 
 const sections = [
   {
-    heading: "1. Data Collection",
-    body: "We collect information you provide directly to us when you create an account, such as your name, email, and tracking configurations.",
+    heading: "1. What We Collect",
+    body: "We collect the details you enter in the app, such as your name, email, sales records, and split settings.",
   },
   {
-    heading: "2. Use of Information",
-    body: "Your sales records and split configurations are stored securely on our servers. We do not sell your data to third parties.",
+    heading: "2. How We Use Your Data",
+    body: "We use this data to run your account, sync your records, and show your analytics in SplytFlow. We do not sell your personal data.",
   },
   {
-    heading: "3. Data Security",
-    body: "We implement appropriate technical and organizational measures to protect the security of your personal information.",
+    heading: "3. Security and Encryption",
+    body: "Sensitive data is encrypted in transit and at rest where supported by our infrastructure and providers.",
   },
   {
-    heading: "4. Your Rights",
-    body: "You have the right to access, update, or delete your information at any time from the account settings page.",
+    heading: "4. Open-Source Transparency",
+    body: "SplytFlow code is open source so you can review how data is handled and reported.",
+  },
+  {
+    heading: "5. Your Controls",
+    body: "You can access and update your account information in settings. In-app account deletion is not available yet; for deletion requests, please contact support.",
   },
 ];
 

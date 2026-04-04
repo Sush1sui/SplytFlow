@@ -1,6 +1,7 @@
 import Elysia from "elysia";
 import { GenerateOtpBody, OtpSchema } from "./model";
 import { create, verify } from "./service";
+import { signPasswordResetToken } from "../../utils/auth";
 import { checkRateLimit } from "../../utils/rate-limit";
 import { getClientIp } from "../../utils/request";
 
@@ -92,6 +93,17 @@ const otp = new Elysia({ prefix: "/otp" })
         if (!isValid) {
           set.status = 400;
           return { error: "Invalid OTP or OTP has expired" };
+        }
+
+        if (purpose === "password-reset") {
+          const { token, expiresAt } = await signPasswordResetToken(email);
+
+          set.status = 200;
+          return {
+            message: "OTP verified successfully",
+            resetToken: token,
+            resetTokenExpiresAt: expiresAt.toISOString(),
+          };
         }
 
         set.status = 200;

@@ -28,6 +28,7 @@ import {
   assertSignupInput,
   normalizeEmail,
 } from "./validators";
+import { verifyPasswordResetToken } from "../../utils/auth";
 import { db } from "../../db";
 import { users } from "../../db/schema";
 import { eq } from "drizzle-orm";
@@ -274,6 +275,34 @@ export async function updatePassword(
     message: `Password ${type === "change" ? "changed" : "reset"} successfully`,
     user: formatUserProfile(user),
   };
+}
+
+export async function resetPasswordWithToken(
+  resetToken: string,
+  password: string,
+  confirmPassword: string,
+) {
+  if (!resetToken) {
+    throw new AuthServiceError("invalid_input", "Reset token is required");
+  }
+
+  let email: string;
+  try {
+    const payload = await verifyPasswordResetToken(resetToken);
+    email = payload.email;
+  } catch {
+    throw new AuthServiceError(
+      "unauthorized",
+      "Invalid or expired password reset session",
+    );
+  }
+
+  const user = await findUserWithPasswordByEmail(normalizeEmail(email));
+  if (!user) {
+    throw new AuthServiceError("not_found", "User not found");
+  }
+
+  return updatePassword(user.id, password, confirmPassword, "reset");
 }
 
 export { AuthServiceError } from "./errors";

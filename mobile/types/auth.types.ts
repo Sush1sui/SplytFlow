@@ -12,6 +12,7 @@ export type AuthContext = {
   user: UserProfile | null;
   login: (email: string, password: string) => Promise<boolean>;
   OTP_signup: (email: string) => Promise<boolean>;
+  OTP_passwordReset: (email: string) => Promise<boolean>;
   verifyOTP: (
     firstName: string,
     lastName: string,
@@ -20,6 +21,12 @@ export type AuthContext = {
     confirmPassword: string,
     code: string,
   ) => Promise<boolean>;
+  verifyPasswordResetOTP: (email: string, code: string) => Promise<string>;
+  resetPassword: (
+    resetToken: string,
+    password: string,
+    confirmPassword: string,
+  ) => Promise<void>;
   logout: () => void;
   updateProfile: (
     firstName: string,
@@ -38,7 +45,15 @@ export type AuthState = Pick<AuthContext, "user" | "loading">;
 
 export type AuthActions = Pick<
   AuthContext,
-  "login" | "OTP_signup" | "verifyOTP" | "logout" | "updateProfile" | "updatePassword"
+  | "login"
+  | "OTP_signup"
+  | "OTP_passwordReset"
+  | "verifyOTP"
+  | "verifyPasswordResetOTP"
+  | "resetPassword"
+  | "logout"
+  | "updateProfile"
+  | "updatePassword"
 >;
 
 export type SignUpParams = {
@@ -49,6 +64,21 @@ export type SignUpParams = {
   confirmPassword: string;
   code?: string;
   purpose?: "signup" | "password-reset";
+};
+
+export type OtpRouteParams = {
+  email?: string;
+  purpose?: "signup" | "password-reset";
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+  confirmPassword?: string;
+};
+
+export type PasswordResetRouteParams = {
+  email?: string;
+  resetToken?: string;
+  purpose?: "password-reset";
 };
 
 export interface LoginResponse {

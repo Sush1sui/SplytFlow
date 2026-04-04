@@ -4,6 +4,7 @@ import {
   refresh,
   signin,
   signup,
+  resetPasswordWithToken,
   logoutSingle,
   logoutAll,
   updateProfile,
@@ -152,6 +153,54 @@ const auth = new Elysia({ prefix: "/auth" })
     },
     {
       body: authSchemas.refreshBody,
+    },
+  )
+
+  /**
+   * POST /auth/password-reset
+   * Body: { resetToken, password, confirmPassword }
+   * Response: { message, user }
+   */
+  .post(
+    "/password-reset",
+    async ({ body, set, request }) => {
+      try {
+        const ip = getClientIp(request.headers);
+        if (
+          !checkRateLimit(
+            `reset-password:${ip}`,
+            AUTH_RATE_LIMIT.max,
+            AUTH_RATE_LIMIT.windowMs,
+          )
+        ) {
+          set.status = 429;
+          return { error: "Too many requests. Please try again later." };
+        }
+
+        const { resetToken, password, confirmPassword } = body;
+
+        if (!resetToken || !password || !confirmPassword) {
+          set.status = 400;
+          return {
+            error: "Reset token, password, and confirmPassword are required",
+          };
+        }
+
+        const result = await resetPasswordWithToken(
+          resetToken,
+          password,
+          confirmPassword,
+        );
+
+        set.status = 200;
+        return result;
+      } catch (error) {
+        set.status = authErrorStatus(error);
+        return authErrorPayload(error);
+      }
+    },
+    {
+      body: authSchemas.resetPasswordBody,
     },
   )
 

@@ -48,3 +48,30 @@ export async function verify(email: string, code: string, purpose = "signup") {
     throw error;
   }
 }
+
+export async function verifyForPasswordReset(email: string, code: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.OTP.VERIFY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code, purpose: "password-reset" }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to verify OTP");
+    }
+
+    const data = await response.json();
+    const resetToken =
+      typeof data.resetToken === "string" ? data.resetToken : "";
+
+    if (!resetToken) {
+      throw new Error("Reset token missing from OTP verification response");
+    }
+
+    return resetToken;
+  } catch (error) {
+    throw error;
+  }
+}

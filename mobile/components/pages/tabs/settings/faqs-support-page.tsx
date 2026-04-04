@@ -7,6 +7,8 @@ import useToast from "@/lib/context/toast-context";
 import useTabResponsive from "../shared/use-tab-responsive";
 import SettingsPageHeader from "./settings-page-header";
 
+const SUPPORT_EMAIL = "splytflow.whatsbakin@gmail.com";
+
 const faqs = [
   {
     question: "How do I add a new split group?",
@@ -21,7 +23,7 @@ const faqs = [
   {
     question: "Is my data synced to the cloud?",
     answer:
-      "Currently, SplytFlow operates locally on your device for maximum speed and privacy.",
+      "Your account data is stored securely and synced when your device is online.",
   },
 ];
 
@@ -31,14 +33,14 @@ export default function FaqsSupportPage() {
   const { showToast } = useToast();
 
   const handleContactSupport = async () => {
-    const mailtoUrl = "mailto:support@splytflow.com";
+    const subject = encodeURIComponent("SplytFlow Support Request");
+    const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=${subject}`;
     try {
       const canOpen = await Linking.canOpenURL(mailtoUrl);
 
       if (!canOpen) {
         showToast({
-          message:
-            "Could not open your email app. Please email support@splytflow.com.",
+          message: `Could not open your email app. Please email ${SUPPORT_EMAIL}.`,
           type: "warning",
         });
         return;
@@ -47,8 +49,7 @@ export default function FaqsSupportPage() {
       await Linking.openURL(mailtoUrl);
     } catch {
       showToast({
-        message:
-          "Could not open your email app. Please email support@splytflow.com.",
+        message: `Could not open your email app. Please email ${SUPPORT_EMAIL}.`,
         type: "danger",
       });
     }
@@ -157,6 +158,16 @@ export default function FaqsSupportPage() {
                 </Paragraph>
               </XStack>
             </Button>
+
+            <Paragraph
+              style={{
+                color: "#64748b",
+                fontSize: font(13, 12, 14),
+                textAlign: "center",
+              }}
+            >
+              {SUPPORT_EMAIL}
+            </Paragraph>
           </YStack>
         </YStack>
       </ScrollView>

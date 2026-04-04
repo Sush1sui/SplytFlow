@@ -1,6 +1,6 @@
 import { useAuthActions } from "@/lib/context/auth-context";
 import useToast from "@/lib/context/toast-context";
-import { SignUpParams } from "@/types/auth.types";
+import { OtpRouteParams } from "@/types/auth.types";
 import AlertDialogModal from "@/components/shared/alert-dialog-modal";
 import useAlertDialog from "@/components/shared/use-alert-dialog";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -26,18 +26,30 @@ const formatCountdown = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
+const getParamValue = (value: string | string[] | undefined): string => {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+};
+
 export default function Otp() {
-  const { verifyOTP, OTP_signup } = useAuthActions();
+  const { verifyOTP, OTP_signup, OTP_passwordReset, verifyPasswordResetOTP } =
+    useAuthActions();
   const { showToast } = useToast();
   const { alertDialogProps, showOk } = useAlertDialog();
-  const {
-    email,
-    firstName,
-    lastName,
-    password,
-    confirmPassword,
-    purpose,
-  }: SignUpParams = useLocalSearchParams();
+  const params = useLocalSearchParams<OtpRouteParams>();
+  const email = getParamValue(params.email).trim().toLowerCase();
+  const firstName = getParamValue(params.firstName);
+  const lastName = getParamValue(params.lastName);
+  const password = getParamValue(params.password);
+  const confirmPassword = getParamValue(params.confirmPassword);
+  const purpose =
+    getParamValue(params.purpose) === "password-reset"
+      ? "password-reset"
+      : "signup";
+  const isPasswordResetFlow = purpose === "password-reset";
   const [otpCode, setOtpCode] = useState("");
   const [isOtpFocused, setIsOtpFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,29 +81,38 @@ export default function Otp() {
   const handleResend = async () => {
     if (resendCountdown > 0 || isResending) return;
 
+    if (!email) {
+      showToast({
+        message: "Email is missing. Please start again.",
+        type: "warning",
+        closable: true,
+      });
+      return;
+    }
+
     try {
       setIsResending(true);
 
-      if (purpose === "signup") {
-        const success = await OTP_signup(email);
+      const success = isPasswordResetFlow
+        ? await OTP_passwordReset(email)
+        : await OTP_signup(email);
 
-        if (!success) {
-          showToast({
-            message: "Failed to resend OTP. Please try again.",
-            type: "danger",
-            closable: true,
-          });
-          return;
-        }
-
-        showOk({
-          title: "New code sent",
-          message: "A new 6-digit code was sent to your email.",
-          okText: "Got it",
+      if (!success) {
+        showToast({
+          message: "Failed to resend OTP. Please try again.",
+          type: "danger",
+          closable: true,
         });
-
-        setResendCountdown(RESEND_COOLDOWN_SECONDS);
+        return;
       }
+
+      showOk({
+        title: "New code sent",
+        message: "A new 6-digit code was sent to your email.",
+        okText: "Got it",
+      });
+
+      setResendCountdown(RESEND_COOLDOWN_SECONDS);
     } catch {
       showToast({
         message: "Could not resend OTP right now.",
@@ -115,6 +136,39 @@ export default function Otp() {
       }
 
       setIsSubmitting(true);
+
+      if (!email) {
+        showToast({
+          message: "Email is missing. Please start again.",
+          type: "danger",
+          closable: true,
+        });
+        return;
+      }
+
+      if (isPasswordResetFlow) {
+        const resetToken = await verifyPasswordResetOTP(email, otpCode);
+
+        router.replace({
+          pathname: "/(auth)/change-password",
+          params: {
+            email,
+            resetToken,
+            purpose: "password-reset",
+          },
+        });
+
+        return;
+      }
+
+      if (!firstName || !lastName || !password || !confirmPassword) {
+        showToast({
+          message: "Signup details are missing. Please sign up again.",
+          type: "danger",
+          closable: true,
+        });
+        return;
+      }
 
       if (purpose === "signup") {
         const success = await verifyOTP(
@@ -186,7 +240,9 @@ export default function Otp() {
               </YStack>
 
               <YStack style={{ alignItems: "center" }} gap="$2">
-                <H2 style={{ fontSize: 42, lineHeight: 46 }}>Verify Email</H2>
+                <H2 style={{ fontSize: 42, lineHeight: 46 }}>
+                  {isPasswordResetFlow ? "Verify Code" : "Verify Email"}
+                </H2>
                 <Paragraph
                   style={{
                     color: "#5f6775",
@@ -196,8 +252,9 @@ export default function Otp() {
                     fontSize: 16,
                   }}
                 >
-                  We&apos;ve sent a 6-digit code to your email. Enter it below
-                  to verify.
+                  {isPasswordResetFlow
+                    ? "We sent a 6-digit code to your email. Enter it below to continue resetting your password."
+                    : "We've sent a 6-digit code to your email. Enter it below to verify."}
                 </Paragraph>
               </YStack>
             </YStack>

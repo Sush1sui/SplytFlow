@@ -13,6 +13,7 @@ const defaultAuthState: AuthState = {
 const defaultAuthActions: AuthActions = {
   login: async () => Promise.resolve(false),
   OTP_signup: async () => Promise.resolve(false),
+  OTP_passwordReset: async () => Promise.resolve(false),
   verifyOTP: async (
     _firstName: string,
     _lastName: string,
@@ -21,6 +22,8 @@ const defaultAuthActions: AuthActions = {
     _confirmPassword: string,
     _code: string,
   ) => Promise.resolve(false),
+  verifyPasswordResetOTP: async () => Promise.resolve(""),
+  resetPassword: async () => Promise.resolve(),
   logout: () => {},
   updateProfile: async () => Promise.resolve(),
   updatePassword: async () => Promise.resolve(),

@@ -8,19 +8,19 @@ import SettingsPageHeader from "./settings-page-header";
 const sections = [
   {
     heading: "1. Acceptance",
-    body: "By accessing and using SplytFlow, you agree to be bound by these Terms of Service and all applicable laws and regulations.",
+    body: "By using SplytFlow, you agree to these Terms and to follow applicable laws.",
   },
   {
-    heading: "2. Use License",
-    body: "Permission is granted to temporarily use SplytFlow for personal, non-commercial transitory viewing only.",
+    heading: "2. Responsible Use",
+    body: "You are responsible for the information you enter in the app and for keeping your account credentials secure.",
   },
   {
-    heading: "3. Disclaimer",
-    body: "The materials on SplytFlow are provided on an 'as is' basis. SplytFlow makes no warranties, expressed or implied.",
+    heading: "3. Service Availability",
+    body: "We work to keep SplytFlow stable and available, but temporary outages, bugs, or maintenance can happen.",
   },
   {
-    heading: "4. Limitations",
-    body: "In no event shall SplytFlow be liable for any damages arising out of the use or inability to use the application.",
+    heading: "4. Limits of Liability",
+    body: "To the extent allowed by law, SplytFlow is not liable for indirect or consequential damages from using or being unable to use the app.",
   },
 ];
 

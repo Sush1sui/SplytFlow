@@ -8,6 +8,7 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
 const secret = new TextEncoder().encode(JWT_SECRET);
 
 const ACCESS_TOKEN_EXPIRY_SECONDS = 60 * 15; // 15 minutes
+const PASSWORD_RESET_TOKEN_EXPIRY_SECONDS = 60 * 10; // 10 minutes
 export const REFRESH_TOKEN_EXPIRY_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
 export async function signAccessToken(
@@ -32,6 +33,44 @@ export async function signAccessToken(
 export async function verifyAccessToken(token: string): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, secret);
   return payload as unknown as JWTPayload;
+}
+
+export async function signPasswordResetToken(
+  email: string,
+): Promise<{ token: string; expiresAt: Date }> {
+  const now = Math.floor(Date.now() / 1000);
+
+  const token = await new SignJWT({
+    email,
+    purpose: "password-reset",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt(now)
+    .setExpirationTime(now + PASSWORD_RESET_TOKEN_EXPIRY_SECONDS)
+    .sign(secret);
+
+  return {
+    token,
+    expiresAt: new Date((now + PASSWORD_RESET_TOKEN_EXPIRY_SECONDS) * 1000),
+  };
+}
+
+export async function verifyPasswordResetToken(
+  token: string,
+): Promise<{ email: string; purpose: "password-reset" }> {
+  const { payload } = await jwtVerify(token, secret);
+
+  if (
+    typeof payload.email !== "string" ||
+    payload.purpose !== "password-reset"
+  ) {
+    throw new Error("Invalid password reset token payload");
+  }
+
+  return {
+    email: payload.email,
+    purpose: "password-reset",
+  };
 }
 
 /** Generate an opaque refresh token and its SHA-256 hash for storage. */

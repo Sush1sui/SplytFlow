@@ -5,10 +5,7 @@ import {
   DEFAULT_BASE_CURRENCY,
 } from "@/constants/currency-context";
 import type { PersistedCurrencyState } from "@/types/currency-context.types";
-import {
-  defaultCurrencyState,
-  resolveDeviceCurrency,
-} from "./currency-helpers";
+import { defaultCurrencyState } from "./currency-helpers";
 
 export async function loadPersistedCurrencyState(): Promise<PersistedCurrencyState> {
   const raw = await SecureStore.getItemAsync(CURRENCY_STORAGE_KEY);
@@ -23,7 +20,7 @@ export async function loadPersistedCurrencyState(): Promise<PersistedCurrencySta
     return {
       selectedCurrency: isSupportedCurrency(parsed.selectedCurrency)
         ? parsed.selectedCurrency
-        : resolveDeviceCurrency(),
+        : DEFAULT_BASE_CURRENCY,
       baseCurrency: isSupportedCurrency(parsed.baseCurrency)
         ? parsed.baseCurrency
         : DEFAULT_BASE_CURRENCY,

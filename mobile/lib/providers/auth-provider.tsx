@@ -13,7 +13,7 @@ import type {
   AuthActions,
   AuthState,
 } from "@/types/auth.types";
-import { requestOTP, verify } from "../utils/otp";
+import { requestOTP, verify, verifyForPasswordReset } from "../utils/otp";
 import { validateSignup } from "../utils/auth-validate";
 
 // SecureStore keys. Must be non-empty and may contain only
@@ -257,6 +257,22 @@ export default function AuthProvider({
     }
   }, []);
 
+  const OTP_passwordReset = useCallback(async (email: string) => {
+    try {
+      const success = await requestOTP(email, "password-reset");
+      if (!success) {
+        throw new Error(
+          "Failed to send password reset code. Please try again.",
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Password reset OTP request failed:", error);
+      throw error;
+    }
+  }, []);
+
   const verifyOTP = useCallback(
     async (
       firstName: string,
@@ -294,6 +310,34 @@ export default function AuthProvider({
     [signup, setUserSafe],
   );
 
+  const verifyPasswordResetOTP = useCallback(
+    async (email: string, code: string) => {
+      try {
+        const resetToken = await verifyForPasswordReset(email, code);
+        return resetToken;
+      } catch (error) {
+        console.error("Password reset OTP verification failed:", error);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const resetPassword = useCallback(
+    async (resetToken: string, password: string, confirmPassword: string) => {
+      if (!resetToken) {
+        throw new Error("Reset token is required");
+      }
+
+      await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.RESET_PASSWORD}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetToken, password, confirmPassword }),
+      });
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     try {
       let [token, refreshToken] = await Promise.all([
@@ -321,16 +365,19 @@ export default function AuthProvider({
             if (newToken) {
               refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY!);
               try {
-                await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${newToken}`,
-                    "Content-Type": "application/json",
+                await apiFetcher(
+                  `${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${newToken}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      refreshToken: refreshToken ?? undefined,
+                    }),
                   },
-                  body: JSON.stringify({
-                    refreshToken: refreshToken ?? undefined,
-                  }),
-                });
+                );
               } catch {
                 // Server-side logout failed after refresh — local cleanup is
                 // sufficient; don't surface this as an error.
@@ -382,24 +429,41 @@ export default function AuthProvider({
       const token = await SecureStore.getItemAsync(TOKEN_KEY!);
       if (!token) throw new Error("Not authenticated");
 
-      await apiFetcher(
-        `${API_BASE_URL}${API_ENDPOINTS.AUTH.UPDATE_PASSWORD}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ oldPassword, password, confirmPassword }),
+      await apiFetcher(`${API_BASE_URL}${API_ENDPOINTS.AUTH.UPDATE_PASSWORD}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ oldPassword, password, confirmPassword }),
+      });
     },
     [],
   );
 
   const authActionsValue = useMemo<AuthActions>(
-    () => ({ login, OTP_signup, verifyOTP, logout, updateProfile, updatePassword }),
-    [login, OTP_signup, verifyOTP, logout, updateProfile, updatePassword],
+    () => ({
+      login,
+      OTP_signup,
+      OTP_passwordReset,
+      verifyOTP,
+      verifyPasswordResetOTP,
+      resetPassword,
+      logout,
+      updateProfile,
+      updatePassword,
+    }),
+    [
+      login,
+      OTP_signup,
+      OTP_passwordReset,
+      verifyOTP,
+      verifyPasswordResetOTP,
+      resetPassword,
+      logout,
+      updateProfile,
+      updatePassword,
+    ],
   );
 
   return (

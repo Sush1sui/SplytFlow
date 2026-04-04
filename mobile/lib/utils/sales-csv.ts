@@ -52,16 +52,6 @@ function formatDate(value: string): string {
   });
 }
 
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function formatExportedAt(value: Date): string {
   return value.toLocaleString(undefined, {
     year: "numeric",
@@ -138,7 +128,6 @@ export function buildSalesCsv({
     toCsvLine([
       "#",
       "Date",
-      "Time",
       "Gross Sale",
       "Split %",
       "Split Deduction",
@@ -158,7 +147,6 @@ export function buildSalesCsv({
       toCsvLine([
         String(index + 1),
         formatDate(row.createdAt),
-        formatTime(row.createdAt),
         formatCurrency(grossDisplay, currencyCode),
         `${roundedSplitPct}%`,
         formatCurrency(splitDeductionDisplay, currencyCode),
@@ -170,7 +158,6 @@ export function buildSalesCsv({
   lines.push(
     toCsvLine([
       "TOTAL",
-      "",
       "",
       formatCurrency(grossTotal, currencyCode),
       `${roundedSplitPct}%`,

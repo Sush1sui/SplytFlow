@@ -131,6 +131,11 @@ export const authSchemas = {
     password: t.String(),
     confirmPassword: t.String(),
   }),
+  resetPasswordBody: t.Object({
+    resetToken: t.String(),
+    password: t.String(),
+    confirmPassword: t.String(),
+  }),
 };
 
 export function authErrorPayload(error: unknown) {

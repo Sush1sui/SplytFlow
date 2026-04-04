@@ -137,17 +137,17 @@ export default function SigninForm({
         </YStack>
 
         <XStack style={{ justifyContent: "flex-end", marginTop: -2 }}>
-          <Button
-            chromeless
+          <Link
+            href="/(auth)/forgot-password"
+            push
             style={{
               color: "#4f46e5",
               fontWeight: "600",
-              paddingHorizontal: 0,
-              height: 28,
+              paddingVertical: 4,
             }}
           >
             Forgot Password?
-          </Button>
+          </Link>
         </XStack>
 
         <Button

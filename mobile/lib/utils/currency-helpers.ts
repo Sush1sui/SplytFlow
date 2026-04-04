@@ -1,6 +1,5 @@
 import {
   currencySymbol,
-  isSupportedCurrency,
   type SupportedCurrencyCode,
 } from "@/constants/currency";
 import { DEFAULT_BASE_CURRENCY } from "@/constants/currency-context";
@@ -9,22 +8,9 @@ import type {
   PersistedCurrencyState,
 } from "@/types/currency-context.types";
 
-export function resolveDeviceCurrency(): SupportedCurrencyCode {
-  try {
-    const resolved = Intl.NumberFormat().resolvedOptions().currency;
-    if (isSupportedCurrency(resolved)) {
-      return resolved;
-    }
-  } catch {
-    // Fall back to default base currency.
-  }
-
-  return DEFAULT_BASE_CURRENCY;
-}
-
 export function defaultCurrencyState(): PersistedCurrencyState {
   return {
-    selectedCurrency: resolveDeviceCurrency(),
+    selectedCurrency: DEFAULT_BASE_CURRENCY,
     baseCurrency: DEFAULT_BASE_CURRENCY,
     initialDecisionMade: false,
   };
