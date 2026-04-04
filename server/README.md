@@ -1,51 +1,95 @@
-# Elysia with Bun runtime
+# SplytFlow Server
 
-## Getting Started
+Backend API for SplytFlow built with Bun, Elysia, Drizzle ORM, and PostgreSQL.
 
-To get started with this template, simply paste this command into your terminal:
+## Current Scope
 
-```bash
-bun create elysia ./elysia-example
-```
+- Auth:
+  - `POST /auth/signin`
+  - `POST /auth/signup`
+  - `POST /auth/refresh`
+  - `POST /auth/password-reset` (public reset using short-lived reset token)
+  - protected profile/password/logout routes
+- OTP:
+  - `POST /otp` for code generation (`signup` and `password-reset`)
+  - `POST /otp/verify` for code verification
+  - returns `resetToken` for `password-reset` purpose
+- Sales, split categories, and splits modules
+
+## Environment Variables
+
+Required:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `EMAIL_USER`
+- `EMAIL_PASSWORD`
+
+Optional:
+
+- `PORT` (defaults to `3001`)
 
 ## Development
 
-To start the development server run:
+Install dependencies:
+
+```bash
+bun install
+```
+
+Start dev server:
 
 ```bash
 bun run dev
 ```
 
-Open http://localhost:3000/ with your browser to see the result.
+## Database Commands
 
-## Development Database Utilities
-
-### Reset only sales domain data (development)
-
-This project includes a safe reset utility for sales-domain tables only:
-
-- Sale
-- Split
-- SplitHistory
-
-It does not touch User, Auth, RefreshToken, or OTP records.
-
-Preview what would be deleted:
+Generate migration:
 
 ```bash
-bun run db:reset:domain --dry-run
+bun run db:generate
 ```
 
-Execute for all users (destructive):
+Apply migrations:
 
 ```bash
-bun run db:reset:domain --yes
+bun run db:migrate
 ```
 
-Execute for one user only:
+Push schema directly:
 
 ```bash
-bun run db:reset:domain --user-id <user-uuid> --yes
+bun run db:push
 ```
 
-Warning: this command is development-only and permanently deletes rows from the listed tables.
+Open Drizzle Studio:
+
+```bash
+bun run db:studio
+```
+
+## Tests
+
+Run all unit tests:
+
+```bash
+bun run test
+```
+
+Run auth-focused unit tests:
+
+```bash
+bun run test:unit:auth
+```
+
+Run endpoint unit tests:
+
+```bash
+bun run test:unit:endpoints
+```
+
+## Notes
+
+- OTP records are cleaned up by a background cleanup job.
+- Password reset depends on OTP verification plus a signed short-lived reset token.

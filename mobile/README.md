@@ -1,50 +1,72 @@
-# Welcome to your Expo app 👋
+# SplytFlow Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native app built with Expo Router, Tamagui, and Redux Toolkit.
 
-## Get started
+## Current Features
 
-1. Install dependencies
+- Sign in and sign up flows with OTP verification
+- Forgot-password flow:
+  - request reset code via email
+  - verify OTP with purpose `password-reset`
+  - reset password from auth screen
+- Sales tracking and history editing
+- Split-aware analytics and range snapshot insights
+- CSV export for the active range
+- Currency preferences with local persistence:
+  - default currency is `PHP` if no local setting exists
+  - user can switch currency and choose `convert amounts` or `keep numbers`
 
-   ```bash
-   npm install
-   ```
+## Key Folders
 
-2. Start the app
+- `app/` - route files (Expo Router)
+- `components/pages/` - feature-level screens and UI blocks
+- `lib/context/` - auth, toast, currency contexts
+- `lib/store/` - Redux slices and hooks
+- `lib/utils/` - formatting, OTP, CSV, and helpers
+- `constants/` - API endpoints, sales constants, currency constants
 
-   ```bash
-   npx expo start
-   ```
+## Setup
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies:
 
 ```bash
-npm run reset-project
+bun install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Configure environment values used by the app:
 
-## Learn more
+- `LOCAL_IP`
+- `LOCAL_PORT`
+- `EXPO_PUBLIC_TOKEN_KEY`
+- `EXPO_PUBLIC_REFRESH_TOKEN_KEY`
+- `EXPO_PUBLIC_RECENT_LOGS_KEY`
 
-To learn more about developing your project with Expo, look at the following resources:
+`LOCAL_IP` and `LOCAL_PORT` are read via `app.config.js` and used for API base URL in development.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Commands
 
-## Join the community
+Start dev server:
 
-Join our community of developers creating universal apps.
+```bash
+bun run start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Run on platforms:
+
+```bash
+bun run android
+bun run ios
+bun run web
+```
+
+Quality checks:
+
+```bash
+bun run lint
+bun run typecheck
+```
+
+## Notes
+
+- Android CSV export uses direct Downloads storage. Test this on a development build.
+- Support contact in-app points to `splytflow.whatsbakin@gmail.com`.
