@@ -12,9 +12,13 @@ React Native app built with Expo Router, Tamagui, and Redux Toolkit.
 - Sales tracking and history editing
 - Split-aware analytics and range snapshot insights
 - CSV export for the active range
+- CSV export for the active range, grouped by date
 - Currency preferences with local persistence:
   - default currency is `PHP` if no local setting exists
   - user can switch currency and choose `convert amounts` or `keep numbers`
+- Sales currency stability:
+  - each sale row keeps the original entered amount and entry currency for edit/history accuracy
+  - a normalized stored amount is used for analytics and totals
 
 ## Key Folders
 

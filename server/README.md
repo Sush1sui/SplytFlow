@@ -16,6 +16,15 @@ Backend API for SplytFlow built with Bun, Elysia, Drizzle ORM, and PostgreSQL.
   - returns `resetToken` for `password-reset` purpose
 - Sales, split categories, and splits modules
 
+## Sales Data Notes
+
+- Sale records persist:
+  - `originalAmount`: exact user-entered number
+  - `currencyCode`: original entry currency
+  - `amount`: normalized amount used for analytics/totals
+- Same-day upsert behavior is currency-aware.
+- Sales range/list queries can be filtered by `currencyCode`.
+
 ## Environment Variables
 
 Required:

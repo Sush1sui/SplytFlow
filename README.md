@@ -14,7 +14,8 @@ This repository contains two main apps:
 - Forgot-password flow with secure reset token handoff
 - Sales analytics by range with split impact insights
 - Currency preference with local persistence and conversion options
-- CSV export based on selected analytics range
+- Sales records store both original entered amount/currency and normalized amount for stable analytics
+- CSV export based on selected analytics range, grouped by sale date
 
 ## Workspace Layout
 
