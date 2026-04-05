@@ -1,8 +1,8 @@
 import React from "react";
 import { ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { Button, Paragraph, XStack, YStack } from "tamagui";
-import { useRouter } from "expo-router";
 import SettingsSection from "./settings-section";
 import useTabResponsive from "../shared/use-tab-responsive";
 import { useAuthActions, useAuthState } from "@/lib/context/auth-context";
@@ -46,9 +46,9 @@ const generalItems = [
 
 export default function SettingsScreen() {
   const { font, space } = useTabResponsive();
-  const router = useRouter();
   const { user, loading: authLoading } = useAuthState();
   const { logout } = useAuthActions();
+  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   if (authLoading) {
     return <SettingsScreenSkeleton />;
@@ -126,6 +126,32 @@ export default function SettingsScreen() {
         <YStack style={{ marginTop: space(18) }} gap="$3">
           <SettingsSection title="ACCOUNT" items={accountItems} />
           <SettingsSection title="GENERAL" items={generalItems} />
+
+          <XStack
+            style={{
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "#e2e8f0",
+              backgroundColor: "#ffffff",
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Paragraph style={{ color: "#64748b", fontSize: font(13, 12, 14) }}>
+              App Version
+            </Paragraph>
+            <Paragraph
+              style={{
+                color: "#0f172a",
+                fontWeight: "700",
+                fontSize: font(13, 12, 14),
+              }}
+            >
+              v{appVersion}
+            </Paragraph>
+          </XStack>
 
           <Button
             style={{
