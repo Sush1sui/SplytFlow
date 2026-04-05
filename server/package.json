@@ -7,6 +7,7 @@
     "test:unit:endpoints": "bun test src/tests/unit/endpoints/**/*.test.ts --timeout 10000",
     "test:unit:auth": "bun test src/tests/unit/auth/**/*.test.ts --timeout 10000",
     "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:stamp": "bun run scripts/db-stamp.ts",
