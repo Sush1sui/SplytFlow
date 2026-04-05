@@ -18,9 +18,11 @@ const LOCAL_IP = (Constants.expoConfig?.extra as any)?.LOCAL_IP || "localhost"; 
 const LOCAL_PORT =
   Number((Constants.expoConfig?.extra as any)?.LOCAL_PORT) || 3000;
 
+const PROD_API_URL = (Constants.expoConfig?.extra as any)?.API_URL;
+
 export const API_BASE_URL = __DEV__
   ? `http://${LOCAL_IP}:${LOCAL_PORT}`
-  : "https://your-production-api.com";
+  : PROD_API_URL || "";
 
 export const API_ENDPOINTS = {
   AUTH: {
