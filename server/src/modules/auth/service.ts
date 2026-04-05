@@ -17,6 +17,7 @@ import {
   consumeRefreshTokenRecord,
   createRefreshTokenRecord,
   createUserRecord,
+  deleteExpiredRefreshTokenRecords,
   deleteRefreshTokenRecord,
   findUserById,
   findUserByIdWithPassword,
@@ -32,6 +33,12 @@ import { verifyPasswordResetToken } from "../../utils/auth";
 import { db } from "../../db";
 import { users } from "../../db/schema";
 import { eq } from "drizzle-orm";
+import {
+  isTransientDbConnectionError,
+  withDbRetry,
+} from "../../utils/db/retry";
+
+const REFRESH_TOKEN_CLEANUP_INTERVAL_MINUTES = 60;
 
 async function createUser(
   firstName: string,
@@ -303,6 +310,36 @@ export async function resetPasswordWithToken(
   }
 
   return updatePassword(user.id, password, confirmPassword, "reset");
+}
+
+export async function runRefreshTokenCleanup(
+  minuteInterval = REFRESH_TOKEN_CLEANUP_INTERVAL_MINUTES,
+) {
+  await cleanupExpiredRefreshTokens();
+  setInterval(cleanupExpiredRefreshTokens, 60 * 1000 * minuteInterval);
+}
+
+async function cleanupExpiredRefreshTokens() {
+  try {
+    const deletedCount = await withDbRetry(
+      () => deleteExpiredRefreshTokenRecords(new Date()),
+      { retries: 1, delayMs: 400 },
+    );
+
+    if (deletedCount > 0) {
+      console.log(`Refresh token cleanup removed ${deletedCount} expired rows`);
+    }
+  } catch (error) {
+    if (isTransientDbConnectionError(error)) {
+      console.error(
+        "Error during refresh token cleanup: database connection timeout",
+      );
+      return;
+    }
+
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`Error during refresh token cleanup: ${msg}`);
+  }
 }
 
 export { AuthServiceError } from "./errors";

@@ -2,6 +2,8 @@ import { Elysia } from "elysia";
 import { db } from "./db";
 
 import { runCleanup } from "./modules/otp/service";
+import { runRefreshTokenCleanup } from "./modules/auth/service";
+import { runSelfPing } from "./utils/self-ping";
 import { runJobs } from "./utils";
 
 // routes
@@ -29,6 +31,8 @@ console.log(
 // ─── Run Jobs ───────────────────────────────────────────────────────
 runJobs([
   runCleanup, // Start OTP cleanup job
+  runRefreshTokenCleanup, // Start refresh token cleanup job
+  runSelfPing, // Keep external route warm on supported hosts (best-effort)
 ]);
 
 // // Track Memory Usage Every 1 second

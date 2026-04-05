@@ -37,6 +37,9 @@ Required:
 Optional:
 
 - `PORT` (defaults to `3001`)
+- `SELF_PING_ENABLED` (`true` by default)
+- `SELF_PING_URL` (if unset, falls back to `RENDER_EXTERNAL_URL`)
+- `SELF_PING_INTERVAL_MINUTES` (defaults to `10`)
 
 ## Development
 
@@ -101,4 +104,6 @@ bun run test:unit:endpoints
 ## Notes
 
 - OTP records are cleaned up by a background cleanup job.
+- Expired refresh tokens are cleaned up by a background cleanup job.
+- Root self-ping is available as a best-effort keep-warm strategy on free-tier hosts.
 - Password reset depends on OTP verification plus a signed short-lived reset token.

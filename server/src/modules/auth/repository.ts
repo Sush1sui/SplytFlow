@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { refreshTokens, users } from "../../db/schema";
 import type {
@@ -125,4 +125,15 @@ export async function invalidateAllSessions(userId: string): Promise<void> {
       .where(eq(users.id, userId)),
     db.delete(refreshTokens).where(eq(refreshTokens.userId, userId)),
   ]);
+}
+
+export async function deleteExpiredRefreshTokenRecords(
+  now = new Date(),
+): Promise<number> {
+  const deleted = await db
+    .delete(refreshTokens)
+    .where(lt(refreshTokens.expiresAt, now))
+    .returning({ id: refreshTokens.id });
+
+  return deleted.length;
 }
